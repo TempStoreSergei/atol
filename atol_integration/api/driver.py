@@ -4,6 +4,7 @@
 from typing import Optional, Dict, Any, List
 import logging
 from enum import IntEnum
+from .libfptr10 import IFptr
 
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,6 @@ class AtolDriver:
         self._connected = False
 
         try:
-            from libfptr10 import IFptr
             self.fptr = IFptr()
             logger.info("АТОЛ драйвер инициализирован")
         except ImportError:
