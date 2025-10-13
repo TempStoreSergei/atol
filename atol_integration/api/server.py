@@ -420,6 +420,22 @@ async def beep():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
+@app.post("/device/play-portal", response_model=StatusResponse, tags=["Device"])
+async def play_portal_melody():
+    """
+    Сыграть мелодию из Portal 2 через динамик ККТ! 🎵
+
+    "Well here we are again, it's always such a pleasure..."
+    """
+    check_connection()
+
+    try:
+        driver.play_portal_melody()
+        return StatusResponse(success=True, message="🎵 Мелодия завершена! This was a triumph!")
+    except AtolDriverError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
 @app.post("/device/open-drawer", response_model=StatusResponse, tags=["Device"])
 async def open_cash_drawer():
     """Открыть денежный ящик"""
