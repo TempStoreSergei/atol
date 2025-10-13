@@ -1,0 +1,23 @@
+# Основные зависимости
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+
+# FastAPI и сервер
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# АТОЛ драйвер ККТ (требует установки драйвера с сайта АТОЛ)
+# Скачать: https://fs.atol.ru/
+# Документация: https://integration.atol.ru/api/
+
+# Для разработки
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
+httpx>=0.25.0  # Для тестирования API
+
+# Для документации
+sphinx>=7.0.0
+sphinx-rtd-theme>=1.3.0
