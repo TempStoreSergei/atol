@@ -9,6 +9,7 @@ import logging
 
 from .driver import AtolDriver, AtolDriverError, ConnectionType
 from .schemas import *
+from .errors import DriverErrorCode, get_error_message
 from ..config.settings import settings
 
 # Настройка логирования
@@ -458,6 +459,100 @@ async def cut_paper():
         return StatusResponse(success=True, message="Чек отрезан")
     except AtolDriverError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+# ========== ОБРАБОТКА ОШИБОК ДРАЙВЕРА ==========
+
+@app.get("/driver/error", tags=["Driver"])
+async def get_last_error():
+    """
+    Получить последнюю ошибку драйвера
+
+    Каждый метод драйвера возвращает индикатор результата (0 или -1).
+    При ошибке можно получить код и описание через errorCode() и errorDescription().
+    """
+    check_driver()
+
+    try:
+        error_code = driver.fptr.errorCode()
+        error_description = driver.fptr.errorDescription()
+
+        return {
+            "error_code": error_code,
+            "error_description": error_description,
+            "error_name": get_error_message(error_code) if error_code != 0 else "OK"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@app.post("/driver/error/reset", response_model=StatusResponse, tags=["Driver"])
+async def reset_error():
+    """
+    Сбросить информацию о последней ошибке
+
+    Явно очищает информацию о последней ошибке драйвера.
+    """
+    check_driver()
+
+    try:
+        driver.fptr.resetError()
+        return StatusResponse(success=True, message="Информация об ошибке сброшена")
+
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@app.get("/driver/errors/codes", tags=["Driver"])
+async def list_error_codes():
+    """
+    Список всех кодов ошибок драйвера
+
+    Возвращает полный справочник кодов ошибок (000-603) с описаниями.
+    """
+    return {
+        "error_codes": [
+            {
+                "code": code.value,
+                "name": code.name,
+                "message": get_error_message(code.value)
+            }
+            for code in DriverErrorCode
+            if code.value <= 700  # Ограничиваем до документированных кодов
+        ]
+    }
+
+
+@app.get("/driver/version", tags=["Driver"])
+async def get_driver_version():
+    """Получить версию драйвера"""
+    check_driver()
+
+    try:
+        version = driver.fptr.version() if driver.fptr else "unknown"
+        return {"version": version}
+
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@app.post("/driver/label", tags=["Driver"])
+async def change_driver_label(label: str):
+    """
+    Изменить метку драйвера для логирования
+
+    Метка добавляется в каждую строку лога (если в формате присутствует %L).
+    Полезно при работе с несколькими экземплярами драйвера.
+    """
+    check_driver()
+
+    try:
+        driver.change_label(label)
+        return StatusResponse(success=True, message=f"Метка драйвера изменена на '{label}'")
+
+    except AtolDriverError as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 # ========== ОБРАБОТЧИКИ ОШИБОК ==========
