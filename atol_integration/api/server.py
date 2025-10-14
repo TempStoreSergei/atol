@@ -26,6 +26,7 @@ from ..routes import receipt_routes
 from ..routes import shift_routes
 from ..routes import cash_routes
 from ..routes import query_routes
+from ..routes import print_routes
 
 from ..config.settings import settings
 
@@ -74,6 +75,7 @@ async def lifespan(app: FastAPI):
         receipt_routes.set_driver(driver)
         shift_routes.set_driver(driver)
         cash_routes.set_driver(driver)
+        print_routes.set_driver(driver)
         query_routes.set_query_service(query_service)
         logger.info("✓ Роутеры подключены к драйверу")
 
@@ -128,6 +130,7 @@ app.include_router(connection_routes.router)
 app.include_router(receipt_routes.router)
 app.include_router(shift_routes.router)
 app.include_router(cash_routes.router)
+app.include_router(print_routes.router)
 app.include_router(query_routes.router)
 
 logger.info("✓ Все роутеры подключены к приложению")
@@ -148,6 +151,7 @@ async def root():
             "/receipt": "Операции с чеками",
             "/shift": "Операции со сменами",
             "/cash": "Кассовые операции (внесение/изъятие)",
+            "/print": "Нефискальная печать (текст, штрихкоды, картинки)",
             "/query": "Запросы информации от ККТ",
             "/docs": "Swagger UI документация",
             "/redoc": "ReDoc документация"

@@ -9,6 +9,7 @@ from . import receipt_routes
 from . import shift_routes
 from . import cash_routes
 from . import query_routes
+from . import print_routes
 
 __all__ = [
     'connection_routes',
@@ -16,4 +17,5 @@ __all__ = [
     'shift_routes',
     'cash_routes',
     'query_routes',
+    'print_routes',
 ]
