@@ -484,6 +484,8 @@ class AtolDriver:
             raise AtolDriverError("Нет подключения к ККТ")
 
         try:
+            # self.set_param(LIBFPTR_PARAM_FREQUENCY, host)
+            self.set_param(IFptr.LIBFPTR_PARAM_DURATION, 10)
             result = self.fptr.beep()
             self._check_result(result, "подачи сигнала")
             return True
