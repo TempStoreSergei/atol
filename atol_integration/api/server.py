@@ -129,9 +129,15 @@ async def health():
 
 # ========== ПОДКЛЮЧЕНИЕ ==========
 
-@app.post("/connect", response_model=StatusResponse, tags=["Connection"])
-async def connect(request: ConnectRequest):
-    """Подключиться к ККТ"""
+@app.post("/connection/open", response_model=StatusResponse, tags=["Connection"])
+async def open_connection(request: ConnectRequest):
+    """
+    Установить соединение с ККТ (fptr.open())
+
+    После настройки рабочего экземпляра можно подключиться к ККТ.
+    До вызова данного метода все другие операции с ККТ будут завершаться
+    с ошибкой LIBFPTR_ERROR_CONNECTION_DISABLED.
+    """
     check_driver()
 
     try:
@@ -144,36 +150,523 @@ async def connect(request: ConnectRequest):
         else:
             driver.connect(conn_type)
 
-        return StatusResponse(success=True, message="Подключение успешно")
+        return StatusResponse(success=True, message="Соединение установлено")
 
     except AtolDriverError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@app.post("/disconnect", response_model=StatusResponse, tags=["Connection"])
-async def disconnect():
-    """Отключиться от ККТ"""
+@app.post("/connection/close", response_model=StatusResponse, tags=["Connection"])
+async def close_connection():
+    """
+    Завершить соединение с ККТ (fptr.close())
+
+    Драйвер вернется в изначальное состояние, как до вызова open().
+    Канал с ОФД будет закрыт и отправка документов в ОФД будет прервана.
+    """
     check_driver()
 
     try:
         driver.disconnect()
-        return StatusResponse(success=True, message="Отключение успешно")
+        return StatusResponse(success=True, message="Соединение завершено")
     except AtolDriverError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@app.get("/status", tags=["Connection"])
+@app.get("/connection/is-opened", tags=["Connection"])
+async def is_connection_opened():
+    """
+    Проверить состояние логического соединения (fptr.isOpened())
+
+    Результат не отражает текущее состояние подключения - если с ККТ была разорвана связь,
+    то метод все также будет возвращать true, но методы, выполняющие операции над ККТ,
+    будут возвращать ошибку LIBFPTR_ERROR_NO_CONNECTION.
+    """
+    check_driver()
+    return {
+        "is_opened": driver.is_connected(),
+        "note": "Возвращает логическое состояние, а не фактическое подключение"
+    }
+
+
+@app.get("/connection/status", tags=["Connection"])
 async def connection_status():
-    """Получить статус подключения"""
+    """Получить статус подключения (устаревший endpoint, используйте /connection/is-opened)"""
     check_driver()
     return {"connected": driver.is_connected()}
 
 
-# ========== ИНФОРМАЦИЯ ОБ УСТРОЙСТВЕ ==========
+# ========== ЗАПРОСЫ ИНФОРМАЦИИ О ККТ (queryData) ==========
+
+@app.get("/query/status", tags=["Query"])
+async def query_status():
+    """
+    Запрос общей информации и статуса ККТ (LIBFPTR_DT_STATUS)
+
+    Возвращает полную информацию о состоянии ККТ: номер кассира, смены, чека,
+    состояние ФН, бумаги, денежного ящика, модель, версию ПО и многое другое.
+    """
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_STATUS)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса статуса: {driver.fptr.errorDescription()}")
+
+        return {
+            "operator_id": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_OPERATOR_ID),
+            "logical_number": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_LOGICAL_NUMBER),
+            "shift_state": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_SHIFT_STATE),
+            "model": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_MODEL),
+            "mode": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_MODE),
+            "submode": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_SUBMODE),
+            "receipt_number": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_RECEIPT_NUMBER),
+            "document_number": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_DOCUMENT_NUMBER),
+            "shift_number": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_SHIFT_NUMBER),
+            "receipt_type": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE),
+            "document_type": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_DOCUMENT_TYPE),
+            "line_length": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_RECEIPT_LINE_LENGTH),
+            "line_length_pix": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_RECEIPT_LINE_LENGTH_PIX),
+            "receipt_sum": driver.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_RECEIPT_SUM),
+            "is_fiscal_device": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_FISCAL),
+            "is_fiscal_fn": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_FN_FISCAL),
+            "is_fn_present": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_FN_PRESENT),
+            "is_invalid_fn": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_INVALID_FN),
+            "is_cashdrawer_opened": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_CASHDRAWER_OPENED),
+            "is_paper_present": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_RECEIPT_PAPER_PRESENT),
+            "is_paper_near_end": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_PAPER_NEAR_END),
+            "is_cover_opened": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_COVER_OPENED),
+            "is_printer_connection_lost": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_PRINTER_CONNECTION_LOST),
+            "is_printer_error": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_PRINTER_ERROR),
+            "is_cut_error": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_CUT_ERROR),
+            "is_printer_overheat": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_PRINTER_OVERHEAT),
+            "is_device_blocked": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_BLOCKED),
+            "date_time": driver.fptr.getParamDateTime(IFptr.LIBFPTR_PARAM_DATE_TIME).isoformat(),
+            "serial_number": driver.fptr.getParamString(IFptr.LIBFPTR_PARAM_SERIAL_NUMBER),
+            "model_name": driver.fptr.getParamString(IFptr.LIBFPTR_PARAM_MODEL_NAME),
+            "firmware_version": driver.fptr.getParamString(IFptr.LIBFPTR_PARAM_UNIT_VERSION)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/short-status", tags=["Query"])
+async def query_short_status():
+    """
+    Короткий запрос статуса ККТ (LIBFPTR_DT_SHORT_STATUS)
+
+    Возвращает только основные статусы: денежный ящик, бумага, крышка.
+    """
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_SHORT_STATUS)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса статуса: {driver.fptr.errorDescription()}")
+
+        return {
+            "is_cashdrawer_opened": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_CASHDRAWER_OPENED),
+            "is_paper_present": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_RECEIPT_PAPER_PRESENT),
+            "is_paper_near_end": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_PAPER_NEAR_END),
+            "is_cover_opened": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_COVER_OPENED)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/cash-sum", tags=["Query"])
+async def query_cash_sum():
+    """
+    Запрос суммы наличных в денежном ящике (LIBFPTR_DT_CASH_SUM)
+    """
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_CASH_SUM)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {
+            "cash_sum": driver.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_SUM)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/unit-version", tags=["Query"])
+async def query_unit_version(unit_type: int):
+    """
+    Запрос версии модуля (LIBFPTR_DT_UNIT_VERSION)
+
+    unit_type:
+    - 0 (LIBFPTR_UT_FIRMWARE): прошивка
+    - 1 (LIBFPTR_UT_CONFIGURATION): конфигурация
+    - 2 (LIBFPTR_UT_TEMPLATES): движок шаблонов
+    - 3 (LIBFPTR_UT_CONTROL_UNIT): блок управления
+    - 4 (LIBFPTR_UT_BOOT): загрузчик
+    """
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_UNIT_VERSION)
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_UNIT_TYPE, unit_type)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        response = {
+            "unit_version": driver.fptr.getParamString(IFptr.LIBFPTR_PARAM_UNIT_VERSION)
+        }
+
+        # Для конфигурации добавляем версию релиза
+        if unit_type == 1:  # LIBFPTR_UT_CONFIGURATION
+            response["release_version"] = driver.fptr.getParamString(IFptr.LIBFPTR_PARAM_UNIT_RELEASE_VERSION)
+
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/shift-state", tags=["Query"])
+async def query_shift_state():
+    """
+    Запрос состояния смены (LIBFPTR_DT_SHIFT_STATE)
+
+    Состояние смены:
+    - 0 (LIBFPTR_SS_CLOSED): смена закрыта
+    - 1 (LIBFPTR_SS_OPENED): смена открыта
+    - 2 (LIBFPTR_SS_EXPIRED): смена истекла (больше 24 часов)
+    """
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_SHIFT_STATE)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {
+            "shift_state": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_SHIFT_STATE),
+            "shift_number": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_SHIFT_NUMBER),
+            "date_time": driver.fptr.getParamDateTime(IFptr.LIBFPTR_PARAM_DATE_TIME).isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/receipt-state", tags=["Query"])
+async def query_receipt_state():
+    """
+    Запрос состояния чека (LIBFPTR_DT_RECEIPT_STATE)
+
+    Возвращает информацию об открытом чеке: тип, номер, сумму, остаток, сдачу.
+    """
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_RECEIPT_STATE)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {
+            "receipt_type": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE),
+            "receipt_number": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_RECEIPT_NUMBER),
+            "document_number": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_DOCUMENT_NUMBER),
+            "receipt_sum": driver.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_RECEIPT_SUM),
+            "remainder": driver.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_REMAINDER),
+            "change": driver.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_CHANGE)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/serial-number", tags=["Query"])
+async def query_serial_number():
+    """
+    Запрос заводского номера ККТ (LIBFPTR_DT_SERIAL_NUMBER)
+    """
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_SERIAL_NUMBER)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {
+            "serial_number": driver.fptr.getParamString(IFptr.LIBFPTR_PARAM_SERIAL_NUMBER)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/model-info", tags=["Query"])
+async def query_model_info():
+    """
+    Запрос информации о модели ККТ (LIBFPTR_DT_MODEL_INFO)
+    """
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_MODEL_INFO)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {
+            "model": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_MODEL),
+            "model_name": driver.fptr.getParamString(IFptr.LIBFPTR_PARAM_MODEL_NAME),
+            "firmware_version": driver.fptr.getParamString(IFptr.LIBFPTR_PARAM_UNIT_VERSION)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/date-time", tags=["Query"])
+async def query_date_time():
+    """
+    Запрос текущих даты и времени ККТ (LIBFPTR_DT_DATE_TIME)
+    """
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_DATE_TIME)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {
+            "date_time": driver.fptr.getParamDateTime(IFptr.LIBFPTR_PARAM_DATE_TIME).isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/receipt-line-length", tags=["Query"])
+async def query_receipt_line_length():
+    """
+    Запрос ширины чековой ленты (LIBFPTR_DT_RECEIPT_LINE_LENGTH)
+    """
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_RECEIPT_LINE_LENGTH)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {
+            "char_line_length": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_RECEIPT_LINE_LENGTH),
+            "pix_line_length": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_RECEIPT_LINE_LENGTH_PIX)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/payment-sum", tags=["Query"])
+async def query_payment_sum(receipt_type: int, payment_type: int):
+    """
+    Запрос суммы платежей за смену (LIBFPTR_DT_PAYMENT_SUM)
+
+    receipt_type: 0-5 (SELL, SELL_RETURN, SELL_CORRECTION, BUY, BUY_RETURN, BUY_CORRECTION)
+    payment_type: 0-9 (CASH, ELECTRONICALLY, PREPAID, CREDIT, OTHER, PT_6-10)
+    """
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_PAYMENT_SUM)
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, receipt_type)
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, payment_type)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {
+            "sum": driver.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_SUM)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/cashin-sum", tags=["Query"])
+async def query_cashin_sum():
+    """Запрос суммы внесений (LIBFPTR_DT_CASHIN_SUM)"""
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_CASHIN_SUM)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {"sum": driver.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_SUM)}
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/cashout-sum", tags=["Query"])
+async def query_cashout_sum():
+    """Запрос суммы выплат (LIBFPTR_DT_CASHOUT_SUM)"""
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_CASHOUT_SUM)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {"sum": driver.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_SUM)}
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/cashin-count", tags=["Query"])
+async def query_cashin_count():
+    """Запрос количества внесений (LIBFPTR_DT_CASHIN_COUNT)"""
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_CASHIN_COUNT)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {"count": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_DOCUMENTS_COUNT)}
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/cashout-count", tags=["Query"])
+async def query_cashout_count():
+    """Запрос количества выплат (LIBFPTR_DT_CASHOUT_COUNT)"""
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_CASHOUT_COUNT)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {"count": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_DOCUMENTS_COUNT)}
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/receipt-count", tags=["Query"])
+async def query_receipt_count(receipt_type: int):
+    """
+    Запрос количества чеков (LIBFPTR_DT_RECEIPT_COUNT)
+
+    receipt_type: 0-5 (SELL, SELL_RETURN, SELL_CORRECTION, BUY, BUY_RETURN, BUY_CORRECTION)
+    """
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_RECEIPT_COUNT)
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, receipt_type)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {"count": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_DOCUMENTS_COUNT)}
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/mac-address", tags=["Query"])
+async def query_mac_address():
+    """Запрос MAC-адреса Ethernet (LIBFPTR_DT_MAC_ADDRESS)"""
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_MAC_ADDRESS)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {"mac_address": driver.fptr.getParamString(IFptr.LIBFPTR_PARAM_MAC_ADDRESS)}
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/printer-temperature", tags=["Query"])
+async def query_printer_temperature():
+    """Запрос температуры ТПГ (LIBFPTR_DT_PRINTER_TEMPERATURE)"""
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_PRINTER_TEMPERATURE)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {"temperature": driver.fptr.getParamString(IFptr.LIBFPTR_PARAM_PRINTER_TEMPERATURE)}
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@app.get("/query/power-source-state", tags=["Query"])
+async def query_power_source_state(power_source_type: int):
+    """
+    Запрос состояния источника питания (LIBFPTR_DT_POWER_SOURCE_STATE)
+
+    power_source_type:
+    - 0 (LIBFPTR_PST_POWER_SUPPLY): внешний блок питания
+    - 1 (LIBFPTR_PST_RTC_BATTERY): батарея часов
+    - 2 (LIBFPTR_PST_BATTERY): встроенные аккумуляторы
+    """
+    check_connection()
+
+    try:
+        from libfptr10 import IFptr
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_POWER_SOURCE_STATE)
+        driver.fptr.setParam(IFptr.LIBFPTR_PARAM_POWER_SOURCE_TYPE, power_source_type)
+        result = driver.fptr.queryData()
+        if result < 0:
+            raise AtolDriverError(f"Ошибка запроса: {driver.fptr.errorDescription()}")
+
+        return {
+            "battery_charge": driver.fptr.getParamInt(IFptr.LIBFPTR_PARAM_BATTERY_CHARGE),
+            "voltage": driver.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_VOLTAGE),
+            "use_battery": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_USE_BATTERY),
+            "is_charging": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_BATTERY_CHARGING),
+            "can_print_on_battery": driver.fptr.getParamBool(IFptr.LIBFPTR_PARAM_CAN_PRINT_WHILE_ON_BATTERY)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+# ========== ИНФОРМАЦИЯ ОБ УСТРОЙСТВЕ (УСТАРЕВШИЕ) ==========
 
 @app.get("/device/info", response_model=DeviceInfoResponse, tags=["Device"])
 async def get_device_info():
-    """Получить информацию об устройстве"""
+    """
+    Получить информацию об устройстве (устаревший endpoint)
+
+    Используйте вместо этого: /query/status или /query/model-info
+    """
     check_connection()
 
     try:
