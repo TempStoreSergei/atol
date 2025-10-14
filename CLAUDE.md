@@ -131,6 +131,15 @@ Business logic that orchestrates API calls and model operations:
   - Directory paths for logs, cache, receipts
   - Loads from `.env` file
 
+- **`LoggingConfig`** (`logging_config.py`): Driver logging configuration management
+  - Creates and manages `fptr10_log.properties` configuration file
+  - Supports log4cpp logging framework used by libfptr10
+  - Configures log levels (ERROR, INFO, DEBUG) for different categories
+  - Manages log files rotation and cleanup
+  - Platform-specific log directory locations (Windows, Linux, macOS)
+  - Log categories: FiscalPrinter, Transport, DeviceDebug, USB, COM, TCP, Bluetooth, etc.
+  - Custom log file path via environment variable `DTO10_LOG_CONFIG_FILE`
+
 - **Constants** (`constants.py`): Supported models list, timeouts, API versions, FFD version
 
 ## Key Implementation Notes
@@ -219,6 +228,53 @@ The driver uses numeric parameter codes (from libfptr10). Key constants:
 
 Refer to `driver.py` for complete parameter list and usage.
 
+### Driver Logging
+
+The driver uses the log4cpp library for comprehensive logging. Configure via `fptr10_log.properties`:
+
+**Log Locations:**
+- Windows: `%APPDATA%/ATOL/drivers10/logs/`
+- Linux: `~/.atol/drivers10/logs/`
+- macOS: `~/Library/Application Support/ru.atol.drivers10/logs/`
+
+**Log Files:**
+- `fptr10.log`: Main driver log
+- `ofd.log`: OFD (Fiscal Data Operator) communication log
+- `device_debug.log`: Device debug output
+- `fptr1C.log`: 1C integration log
+
+**Log Levels:**
+- ERROR: Errors only
+- INFO: Basic logging
+- DEBUG: Extended logging with communication protocol details
+
+**Log Categories:**
+- `FiscalPrinter`: High-level driver operations
+- `Transport`: Driver-to-device communication
+- `EthernetOverTransport`: Device-to-internet communication
+- `DeviceDebug`: Device debug output
+- `USB`, `COM`, `TCP`, `Bluetooth`: Low-level channel communication
+
+**Driver Label:**
+Use `driver.change_label("LABEL")` to add an identifier to log entries. Useful when running multiple driver instances. The label appears in logs when `%L` modifier is used in log format.
+
+**Python API:**
+```python
+from atol_integration.config.logging_config import (
+    LoggingConfig, LogLevel, LogCategory
+)
+
+config = LoggingConfig()
+config.create_default_config()
+config.update_category_level(LogCategory.FISCAL_PRINTER, LogLevel.DEBUG)
+config.enable_console_logging([LogCategory.FISCAL_PRINTER])
+
+# Use driver label for multi-instance logging
+driver.change_label("KASSA-01")
+```
+
+See `examples/driver_logging_example.py` for complete examples.
+
 ## Current Implementation Status
 
 **Fully Implemented (v0.2.0, Beta):**
@@ -229,6 +285,8 @@ Refer to `driver.py` for complete parameter list and usage.
 - Device information queries
 - Multiple connection types
 - Context manager support
+- Driver logging configuration and management
+- Driver label support for multi-instance environments
 - Comprehensive examples
 
 **Not Yet Implemented:**
@@ -276,3 +334,9 @@ See `examples/` directory:
   - Shift management
   - Various connection types (USB, Serial, Bluetooth)
   - Context manager usage
+- `driver_logging_example.py` - Logging configuration and management:
+  - Creating and configuring log files
+  - Setting log levels for different categories
+  - Using driver labels for multi-instance logging
+  - Managing log files and cleanup
+  - Custom log file paths

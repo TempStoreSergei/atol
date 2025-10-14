@@ -157,6 +157,34 @@ class AtolDriver:
             error = self.get_param_string(1)
             raise AtolDriverError(f"Ошибка {operation}: {error}")
 
+    def change_label(self, label: str) -> bool:
+        """
+        Изменить метку драйвера для логирования
+
+        Метка драйвера является идентификатором, который добавляется в каждую
+        строку лога драйвера (если в формате лога присутствует модификатор %L).
+        Это полезно для разделения логов между несколькими экземплярами драйвера.
+
+        Args:
+            label: Новая метка драйвера
+
+        Returns:
+            bool: True если метка успешно изменена
+
+        Example:
+            driver.change_label("Касса-01")
+        """
+        if not self.fptr:
+            raise AtolDriverError("Драйвер не инициализирован")
+
+        try:
+            self.fptr.changeLabel(label)
+            logger.info(f"Метка драйвера изменена на: {label}")
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка изменения метки драйвера: {e}")
+            raise AtolDriverError(f"Не удалось изменить метку: {e}")
+
     # ========== ИНФОРМАЦИЯ ОБ УСТРОЙСТВЕ ==========
 
     def get_device_info(self) -> Dict[str, Any]:
