@@ -321,10 +321,24 @@ async def cut_paper():
 
 @app.exception_handler(AtolDriverError)
 async def atol_driver_error_handler(request, exc: AtolDriverError):
-    """Обработчик ошибок драйвера"""
+    """Обработчик ошибок драйвера с подробной информацией"""
+    error_content = {
+        "error": "AtolDriverError",
+        "detail": str(exc),
+    }
+
+    # Добавляем код ошибки и описание если доступны
+    if hasattr(exc, 'error_code') and exc.error_code is not None:
+        error_content["error_code"] = exc.error_code
+        error_content["error_description"] = exc.error_description
+        error_content["message"] = exc.message
+
+        # Добавляем ссылку на документацию по ошибке
+        error_content["docs_url"] = f"https://integration.atol.ru/api/#!error-{exc.error_code}"
+
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
-        content={"error": "AtolDriverError", "detail": str(exc)}
+        content=error_content
     )
 
 

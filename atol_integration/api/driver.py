@@ -49,7 +49,33 @@ class PaymentType(IntEnum):
 
 class AtolDriverError(Exception):
     """Базовое исключение для ошибок драйвера АТОЛ"""
-    pass
+
+    def __init__(self, message: str, error_code: Optional[int] = None, error_description: Optional[str] = None):
+        """
+        Инициализация ошибки
+
+        Args:
+            message: Сообщение об ошибке
+            error_code: Код ошибки из драйвера
+            error_description: Описание ошибки из драйвера
+        """
+        super().__init__(message)
+        self.error_code = error_code
+        self.error_description = error_description or message
+        self.message = message
+
+    def __str__(self):
+        if self.error_code is not None:
+            return f"[Код {self.error_code}] {self.error_description}"
+        return self.message
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Преобразовать в словарь для API"""
+        return {
+            "message": self.message,
+            "error_code": self.error_code,
+            "error_description": self.error_description
+        }
 
 
 class AtolDriver:
@@ -154,8 +180,18 @@ class AtolDriver:
     def _check_result(self, result: int, operation: str = "") -> None:
         """Проверить результат операции"""
         if result < 0:
-            error = self.get_param_string(1)
-            raise AtolDriverError(f"Ошибка {operation}: {error}")
+            error_code = self.fptr.errorCode()
+            error_desc = self.fptr.errorDescription()
+
+            # Импортируем функцию получения русского описания ошибки
+            from .errors import get_error_message
+            error_message_ru = get_error_message(error_code)
+
+            raise AtolDriverError(
+                message=f"Ошибка {operation}" if operation else "Ошибка операции",
+                error_code=error_code,
+                error_description=f"{error_message_ru}: {error_desc}"
+            )
 
     def change_label(self, label: str) -> bool:
         """
