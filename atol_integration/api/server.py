@@ -209,7 +209,7 @@ async def query_status():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_STATUS)
         result = driver.fptr.queryData()
         if result < 0:
@@ -262,7 +262,7 @@ async def query_short_status():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_SHORT_STATUS)
         result = driver.fptr.queryData()
         if result < 0:
@@ -286,7 +286,7 @@ async def query_cash_sum():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_CASH_SUM)
         result = driver.fptr.queryData()
         if result < 0:
@@ -314,7 +314,7 @@ async def query_unit_version(unit_type: int):
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_UNIT_VERSION)
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_UNIT_TYPE, unit_type)
         result = driver.fptr.queryData()
@@ -347,7 +347,7 @@ async def query_shift_state():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_SHIFT_STATE)
         result = driver.fptr.queryData()
         if result < 0:
@@ -372,7 +372,7 @@ async def query_receipt_state():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_RECEIPT_STATE)
         result = driver.fptr.queryData()
         if result < 0:
@@ -398,7 +398,7 @@ async def query_serial_number():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_SERIAL_NUMBER)
         result = driver.fptr.queryData()
         if result < 0:
@@ -419,7 +419,7 @@ async def query_model_info():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_MODEL_INFO)
         result = driver.fptr.queryData()
         if result < 0:
@@ -442,7 +442,7 @@ async def query_date_time():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_DATE_TIME)
         result = driver.fptr.queryData()
         if result < 0:
@@ -463,7 +463,7 @@ async def query_receipt_line_length():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_RECEIPT_LINE_LENGTH)
         result = driver.fptr.queryData()
         if result < 0:
@@ -488,7 +488,7 @@ async def query_payment_sum(receipt_type: int, payment_type: int):
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_PAYMENT_SUM)
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, receipt_type)
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, payment_type)
@@ -509,7 +509,7 @@ async def query_cashin_sum():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_CASHIN_SUM)
         result = driver.fptr.queryData()
         if result < 0:
@@ -526,7 +526,7 @@ async def query_cashout_sum():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_CASHOUT_SUM)
         result = driver.fptr.queryData()
         if result < 0:
@@ -543,7 +543,7 @@ async def query_cashin_count():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_CASHIN_COUNT)
         result = driver.fptr.queryData()
         if result < 0:
@@ -560,7 +560,7 @@ async def query_cashout_count():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_CASHOUT_COUNT)
         result = driver.fptr.queryData()
         if result < 0:
@@ -581,7 +581,7 @@ async def query_receipt_count(receipt_type: int):
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_RECEIPT_COUNT)
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, receipt_type)
         result = driver.fptr.queryData()
@@ -599,7 +599,7 @@ async def query_mac_address():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_MAC_ADDRESS)
         result = driver.fptr.queryData()
         if result < 0:
@@ -616,7 +616,7 @@ async def query_printer_temperature():
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_PRINTER_TEMPERATURE)
         result = driver.fptr.queryData()
         if result < 0:
@@ -640,7 +640,7 @@ async def query_power_source_state(power_source_type: int):
     check_connection()
 
     try:
-        from libfptr10 import IFptr
+        from .libfptr10 import IFptr
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_POWER_SOURCE_STATE)
         driver.fptr.setParam(IFptr.LIBFPTR_PARAM_POWER_SOURCE_TYPE, power_source_type)
         result = driver.fptr.queryData()
