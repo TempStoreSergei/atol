@@ -15,6 +15,7 @@ from .driver import (
     PaymentType,
     AtolDriverError
 )
+from .errors import DriverErrorCode, get_error_message
 
 # Глобальное хранилище драйверов (ключ - ID драйвера)
 _drivers: Dict[str, AtolDriver] = {}
@@ -515,3 +516,76 @@ async def get_device_info(driver_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
+
+
+# ==================== ENDPOINTS: ОБРАБОТКА ОШИБОК ====================
+
+@router.get("/driver/{driver_id}/error")
+async def get_last_error(driver_id: str):
+    """
+    Получить последнюю ошибку драйвера
+
+    Возвращает код и описание последней ошибки.
+    Информация об ошибке сохраняется до следующего вызова метода драйвера.
+    """
+    driver = get_driver(driver_id)
+
+    try:
+        error_code = driver.fptr.errorCode()
+        error_description = driver.fptr.errorDescription()
+
+        return {
+            "error_code": error_code,
+            "error_description": error_description,
+            "error_name": get_error_message(error_code) if error_code != 0 else "OK"
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.post("/driver/{driver_id}/error/reset")
+async def reset_error(driver_id: str):
+    """
+    Сбросить информацию о последней ошибке
+
+    Явно очищает информацию о последней ошибке драйвера.
+    """
+    driver = get_driver(driver_id)
+
+    try:
+        driver.fptr.resetError()
+
+        return StatusResponse(
+            success=True,
+            message="Информация об ошибке сброшена"
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.get("/errors/codes")
+async def list_error_codes():
+    """
+    Список всех кодов ошибок
+
+    Возвращает полный список кодов ошибок драйвера с описаниями.
+    """
+    return {
+        "error_codes": [
+            {
+                "code": code.value,
+                "name": code.name,
+                "message": get_error_message(code.value)
+            }
+            for code in DriverErrorCode
+            if code.value <= 700  # Ограничиваем до документированных кодов
+        ]
+    }
