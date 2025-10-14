@@ -478,14 +478,20 @@ class AtolDriver:
 
     # ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ==========
 
-    def beep(self) -> bool:
-        """Издать звуковой сигнал"""
+    def beep(self, frequency: int = 2000, duration: int = 100) -> bool:
+        """
+        Издать звуковой сигнал
+
+        Args:
+            frequency: Частота звука в Гц (по умолчанию 2000)
+            duration: Длительность звука в мс (по умолчанию 100)
+        """
         if not self._connected:
             raise AtolDriverError("Нет подключения к ККТ")
 
         try:
-            # self.set_param(LIBFPTR_PARAM_FREQUENCY, host)
-            self.set_param(IFptr.LIBFPTR_PARAM_DURATION, 10)
+            self.set_param(IFptr.LIBFPTR_PARAM_FREQUENCY, frequency)
+            self.set_param(IFptr.LIBFPTR_PARAM_DURATION, duration)
             result = self.fptr.beep()
             self._check_result(result, "подачи сигнала")
             return True
@@ -502,38 +508,48 @@ class AtolDriver:
         if not self._connected:
             raise AtolDriverError("Нет подключения к ККТ")
 
-        import time
-
         logger.info("🎵 Начинаем проигрывать Portal 2 - Want You Gone!")
 
-        # Нотная запись упрощенной версии мелодии
-        # (нота, длительность в секундах)
-        # Используем базовый beep, т.к. не все драйверы поддерживают частоты
+        # Упрощённая мелодия "Want You Gone" из Portal 2
+        # Формат: (частота в Гц, длительность в мс)
+        # Используем параметры LIBFPTR_PARAM_FREQUENCY и LIBFPTR_PARAM_DURATION
         melody = [
             # "Well here we are again"
-            (0.1, 0.15), (0.1, 0.15), (0.1, 0.3),
+            (523, 200),  # C5
+            (587, 200),  # D5
+            (659, 400),  # E5
             # "It's always such a pleasure"
-            (0.1, 0.15), (0.1, 0.15), (0.1, 0.15), (0.1, 0.3),
-            # Пауза
-            (0, 0.2),
+            (659, 200),  # E5
+            (698, 200),  # F5
+            (784, 200),  # G5
+            (880, 400),  # A5
+            # Пауза (тихий звук)
+            (100, 100),
             # "Remember when you tried to kill me twice?"
-            (0.1, 0.15), (0.1, 0.15), (0.1, 0.15), (0.1, 0.15),
-            (0.1, 0.15), (0.1, 0.3),
+            (880, 150),  # A5
+            (784, 150),  # G5
+            (698, 150),  # F5
+            (659, 150),  # E5
+            (587, 150),  # D5
+            (523, 300),  # C5
             # Пауза
-            (0, 0.3),
+            (100, 150),
             # Финальная фраза
-            (0.1, 0.2), (0.1, 0.2), (0.1, 0.4),
+            (659, 250),  # E5
+            (698, 250),  # F5
+            (784, 500),  # G5
             # Завершающий аккорд
-            (0.1, 0.6),
+            (523, 600),  # C5
         ]
 
         try:
-            for duration, pause in melody:
-                if duration > 0:
-                    # Издаем звук
-                    self.fptr.beep()
-                # Пауза между нотами
-                time.sleep(pause)
+            for frequency, duration in melody:
+                # Устанавливаем частоту и длительность через параметры
+                self.set_param(IFptr.LIBFPTR_PARAM_FREQUENCY, frequency)
+                self.set_param(IFptr.LIBFPTR_PARAM_DURATION, duration)
+                # Воспроизводим звук
+                result = self.fptr.beep()
+                self._check_result(result, "проигрывания ноты")
 
             logger.info("🎵 Мелодия завершена! Спасибо за использование Aperture Science!")
             return True
