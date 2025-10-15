@@ -274,12 +274,25 @@ class CommandProcessor:
             # ======================================================================
             elif command == 'print_text':
                 text = kwargs.get('text', '')
-                alignment = kwargs.get('alignment', IFptr.LIBFPTR_ALIGNMENT_LEFT)
-                wrap = kwargs.get('wrap', IFptr.LIBFPTR_TW_NONE)
-
+                # Обязательные параметры
                 self.fptr.setParam(IFptr.LIBFPTR_PARAM_TEXT, text)
-                self.fptr.setParam(IFptr.LIBFPTR_PARAM_ALIGNMENT, alignment)
-                self.fptr.setParam(IFptr.LIBFPTR_PARAM_TEXT_WRAP, wrap)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_ALIGNMENT, kwargs.get('alignment', IFptr.LIBFPTR_ALIGNMENT_LEFT))
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_TEXT_WRAP, kwargs.get('wrap', IFptr.LIBFPTR_TW_NONE))
+
+                # Опциональные параметры
+                if 'font' in kwargs:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_FONT, kwargs['font'])
+                if 'double_width' in kwargs:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_FONT_DOUBLE_WIDTH, kwargs['double_width'])
+                if 'double_height' in kwargs:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_FONT_DOUBLE_HEIGHT, kwargs['double_height'])
+                if 'linespacing' in kwargs:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_LINESPACING, kwargs['linespacing'])
+                if 'brightness' in kwargs:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_BRIGHTNESS, kwargs['brightness'])
+                if 'defer' in kwargs and kwargs['defer'] != 0:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_DEFER, kwargs['defer'])
+
                 self._check_result(self.fptr.printText(), "печати текста")
                 response['success'] = True
                 response['message'] = f"Текст напечатан: '{text}'"
@@ -293,17 +306,64 @@ class CommandProcessor:
 
             elif command == 'print_barcode':
                 barcode = kwargs['barcode']
-                barcode_type = kwargs.get('barcode_type', IFptr.LIBFPTR_BT_QR)
-                alignment = kwargs.get('alignment', IFptr.LIBFPTR_ALIGNMENT_LEFT)
-                scale = kwargs.get('scale', 2)
-
+                # Обязательные параметры
                 self.fptr.setParam(IFptr.LIBFPTR_PARAM_BARCODE, barcode)
-                self.fptr.setParam(IFptr.LIBFPTR_PARAM_BARCODE_TYPE, barcode_type)
-                self.fptr.setParam(IFptr.LIBFPTR_PARAM_ALIGNMENT, alignment)
-                self.fptr.setParam(IFptr.LIBFPTR_PARAM_SCALE, scale)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_BARCODE_TYPE, kwargs.get('barcode_type', IFptr.LIBFPTR_BT_QR))
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_ALIGNMENT, kwargs.get('alignment', IFptr.LIBFPTR_ALIGNMENT_LEFT))
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_SCALE, kwargs.get('scale', 2))
+
+                # Опциональные параметры
+                if 'left_margin' in kwargs:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_LEFT_MARGIN, kwargs['left_margin'])
+                if 'invert' in kwargs:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_BARCODE_INVERT, kwargs['invert'])
+                if 'height' in kwargs:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_HEIGHT, kwargs['height'])
+                if 'print_text' in kwargs:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_BARCODE_PRINT_TEXT, kwargs['print_text'])
+                if 'correction' in kwargs:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_BARCODE_CORRECTION, kwargs['correction'])
+                if 'version' in kwargs:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_BARCODE_VERSION, kwargs['version'])
+                if 'columns' in kwargs:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_BARCODE_COLUMNS, kwargs['columns'])
+                if 'defer' in kwargs and kwargs['defer'] != 0:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_DEFER, kwargs['defer'])
+
                 self._check_result(self.fptr.printBarcode(), "печати штрихкода")
                 response['success'] = True
                 response['message'] = f"Штрихкод напечатан: '{barcode}'"
+
+            elif command == 'print_picture':
+                filename = kwargs['filename']
+                # Обязательные параметры
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_FILENAME, filename)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_ALIGNMENT, kwargs.get('alignment', IFptr.LIBFPTR_ALIGNMENT_LEFT))
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_SCALE_PERCENT, kwargs.get('scale_percent', 100))
+
+                # Опциональные параметры
+                if 'left_margin' in kwargs:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_LEFT_MARGIN, kwargs['left_margin'])
+
+                self._check_result(self.fptr.printPicture(), "печати картинки")
+                response['success'] = True
+                response['message'] = f"Картинка напечатана: '{filename}'"
+
+            elif command == 'print_picture_by_number':
+                picture_number = kwargs['picture_number']
+                # Обязательные параметры
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_PICTURE_NUMBER, picture_number)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_ALIGNMENT, kwargs.get('alignment', IFptr.LIBFPTR_ALIGNMENT_LEFT))
+
+                # Опциональные параметры
+                if 'left_margin' in kwargs:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_LEFT_MARGIN, kwargs['left_margin'])
+                if 'defer' in kwargs and kwargs['defer'] != 0:
+                    self.fptr.setParam(IFptr.LIBFPTR_PARAM_DEFER, kwargs['defer'])
+
+                self._check_result(self.fptr.printPictureByNumber(), "печати картинки из памяти")
+                response['success'] = True
+                response['message'] = f"Картинка №{picture_number} напечатана"
 
             elif command == 'print_x_report':
                 self.fptr.setParam(IFptr.LIBFPTR_PARAM_REPORT_TYPE, IFptr.LIBFPTR_RT_X)
