@@ -28,6 +28,12 @@ class PrintBarcodeRequest(BaseModel):
     scale: int = Field(2, description="Коэффициент увеличения (1-10)")
 
 
+class BeepRequest(BaseModel):
+    """Запрос на звуковой сигнал"""
+    frequency: int = Field(2000, description="Частота звука в Гц (100-10000)", ge=100, le=10000)
+    duration: int = Field(100, description="Длительность звука в мс (10-5000)", ge=10, le=5000)
+
+
 class StatusResponse(BaseModel):
     """Статус операции"""
     success: bool
@@ -70,3 +76,45 @@ async def print_barcode(
     """
     return redis.execute_command('print_barcode', request.model_dump())
 
+
+# ========== ЗВУКОВЫЕ СИГНАЛЫ ==========
+
+@router.post("/beep", response_model=StatusResponse)
+async def beep(
+    request: BeepRequest = BeepRequest(),
+    redis: RedisClient = Depends(get_redis_client)
+):
+    """
+    Подать звуковой сигнал через динамик ККТ.
+
+    Параметры:
+    - **frequency**: Частота звука в Гц (100-10000). По умолчанию 2000 Гц
+    - **duration**: Длительность звука в мс (10-5000). По умолчанию 100 мс
+
+    Примеры частот:
+    - 262 Гц - До (C4)
+    - 294 Гц - Ре (D4)
+    - 330 Гц - Ми (E4)
+    - 349 Гц - Фа (F4)
+    - 392 Гц - Соль (G4)
+    - 440 Гц - Ля (A4)
+    - 494 Гц - Си (B4)
+    - 523 Гц - До (C5)
+    """
+    return redis.execute_command('beep', request.model_dump())
+
+
+@router.post("/play-arcane", response_model=StatusResponse)
+async def play_arcane_melody(redis: RedisClient = Depends(get_redis_client)):
+    """
+    Сыграть мелодию "Enemy" из сериала Arcane через динамик ККТ!
+
+    🎵 Everybody wants to be my enemy... 🎵
+
+    Воспроизводит упрощённую версию главной темы из Arcane (Imagine Dragons feat. JID).
+    Примерная длительность: ~15 секунд.
+
+    **Внимание**: Во время воспроизведения мелодии ККТ будет занята и не сможет
+    выполнять другие операции.
+    """
+    return redis.execute_command('play_arcane_melody')
