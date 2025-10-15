@@ -459,19 +459,188 @@ curl -X POST http://localhost:8000/receipt/create \
 
 ## Обработка ошибок
 
-Все ошибки возвращаются в формате:
+### Формат ошибок
+
+Все ошибки драйвера возвращаются в расширенном формате с полной диагностической информацией:
 
 ```json
 {
   "error": "AtolDriverError",
-  "detail": "Описание ошибки"
+  "detail": "[Код 15] Механическая ошибка печатающего устройства: нет бумаги или замятие",
+  "error_code": 15,
+  "error_description": "Механическая ошибка печатающего устройства: нет бумаги или замятие",
+  "message": "Ошибка промотки ленты",
+  "docs_url": "https://integration.atol.ru/api/#!error-15"
 }
 ```
 
-HTTP коды:
-- `200` - Успешно
-- `400` - Ошибка запроса или драйвера
+Поля ответа:
+- `error` - Тип ошибки (всегда "AtolDriverError")
+- `detail` - Форматированное описание с кодом ошибки
+- `error_code` - Числовой код ошибки драйвера (0-603)
+- `error_description` - Детальное описание ошибки на русском языке
+- `message` - Контекст операции (что пыталось сделать приложение)
+- `docs_url` - Ссылка на документацию АТОЛ для данного кода ошибки
+
+### HTTP коды
+
+- `200` - Успешное выполнение операции
+- `400` - Ошибка запроса или драйвера (AtolDriverError)
+- `500` - Внутренняя ошибка сервера
 - `503` - Сервис недоступен (драйвер не инициализирован или нет подключения)
+
+### Диагностика ошибок
+
+#### GET /driver/error
+
+Получить информацию о последней ошибке драйвера:
+
+```bash
+curl http://localhost:8000/driver/error
+```
+
+Ответ:
+```json
+{
+  "error_code": 15,
+  "error_description": "Механическая ошибка печатающего устройства",
+  "error_name": "Механическая ошибка печатающего устройства"
+}
+```
+
+#### POST /driver/error/reset
+
+Сбросить информацию о последней ошибке:
+
+```bash
+curl -X POST http://localhost:8000/driver/error/reset
+```
+
+#### GET /driver/errors/codes
+
+Получить полный справочник всех кодов ошибок (269 кодов, 000-603):
+
+```bash
+curl http://localhost:8000/driver/errors/codes
+```
+
+Ответ (сокращенно):
+```json
+{
+  "error_codes": [
+    {
+      "code": 0,
+      "name": "OK",
+      "message": "Ошибок нет"
+    },
+    {
+      "code": 1,
+      "name": "CONNECTION_DISABLED",
+      "message": "Соединение не установлено"
+    },
+    {
+      "code": 15,
+      "name": "MECHANICAL_ERROR",
+      "message": "Механическая ошибка печатающего устройства"
+    }
+  ]
+}
+```
+
+### Наиболее частые ошибки
+
+| Код | Описание | Решение |
+|-----|----------|---------|
+| 0 | Ошибок нет | - |
+| 1 | Соединение не установлено | Вызвать `/connection/open` |
+| 2 | Нет связи | Проверить подключение, IP-адрес, порт |
+| 15 | Механическая ошибка печатающего устройства | Проверить наличие бумаги, открытие крышки |
+| 42 | Чек не открыт | Вызвать `/receipt/open` перед добавлением позиций |
+| 43 | Смена не открыта | Вызвать `/shift/open` перед операциями |
+| 51 | Ожидание данных от ФН | Дождаться завершения операции |
+| 239 | Смена более 24 часов | Закрыть текущую смену и открыть новую |
+| 377 | Очередь ОФД переполнена | Проверить соединение с ОФД |
+| 601 | Устройство занято другим клиентом | Дождаться освобождения устройства |
+
+### Примеры обработки ошибок
+
+#### Python
+
+```python
+import requests
+
+BASE_URL = "http://localhost:8000"
+
+try:
+    response = requests.post(f"{BASE_URL}/receipt/close")
+    response.raise_for_status()
+    result = response.json()
+    print(f"Чек закрыт! ФД: {result['fiscal_document_number']}")
+except requests.exceptions.HTTPError as e:
+    error = e.response.json()
+    print(f"Ошибка [{error['error_code']}]: {error['error_description']}")
+    print(f"Документация: {error['docs_url']}")
+
+    # Обработка конкретных ошибок
+    if error['error_code'] == 42:
+        print("Чек не был открыт. Откройте чек перед закрытием.")
+    elif error['error_code'] == 15:
+        print("Проблема с принтером. Проверьте бумагу и механизм.")
+```
+
+#### JavaScript/Node.js
+
+```javascript
+const BASE_URL = "http://localhost:8000";
+
+async function closeReceipt() {
+    try {
+        const response = await fetch(`${BASE_URL}/receipt/close`, {
+            method: "POST"
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            console.error(`Ошибка [${error.error_code}]: ${error.error_description}`);
+            console.error(`Документация: ${error.docs_url}`);
+
+            // Обработка конкретных ошибок
+            switch (error.error_code) {
+                case 42:
+                    console.log("Чек не был открыт.");
+                    break;
+                case 15:
+                    console.log("Проблема с принтером.");
+                    break;
+            }
+            return;
+        }
+
+        const result = await response.json();
+        console.log(`Чек закрыт! ФД: ${result.fiscal_document_number}`);
+    } catch (e) {
+        console.error("Ошибка сети:", e);
+    }
+}
+```
+
+#### cURL с обработкой ошибок
+
+```bash
+# Попытка закрыть чек
+response=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8000/receipt/close)
+http_code=$(echo "$response" | tail -n1)
+body=$(echo "$response" | sed '$d')
+
+if [ "$http_code" -eq 200 ]; then
+    echo "Успешно: $body"
+else
+    echo "Ошибка [$http_code]: $body"
+    # Извлечь код ошибки из JSON
+    error_code=$(echo "$body" | jq -r '.error_code')
+    echo "Код ошибки драйвера: $error_code"
+fi
+```
 
 ## Python клиент
 

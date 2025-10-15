@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     api_port: int = 8000
     api_reload: bool = False  # auto-reload для разработки
 
+    # Redis
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+
     # Пути
     log_dir: Path = Path("logs")
     cache_dir: Path = Path("data/cache")

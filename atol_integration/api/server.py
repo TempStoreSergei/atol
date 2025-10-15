@@ -109,7 +109,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="АТОЛ ККТ API",
     description="REST API для работы с кассовым оборудованием АТОЛ через драйвер v.10",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -143,7 +143,7 @@ async def root():
     """Корневой endpoint с информацией о API"""
     return {
         "name": "АТОЛ ККТ API",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "status": "running",
         "connected": driver.is_connected() if driver else False,
         "endpoints": {
