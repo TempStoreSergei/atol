@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException, status
 # Импорты роутеров
 from ..routes import (
     cash_routes,
+    config_routes,
     connection_routes,
     print_routes,
     query_routes,
@@ -36,6 +37,7 @@ app.include_router(shift_routes.router)
 app.include_router(cash_routes.router)
 app.include_router(print_routes.router)
 app.include_router(query_routes.router)
+app.include_router(config_routes.router)
 
 logger.info("✓ Все роутеры подключены к приложению")
 

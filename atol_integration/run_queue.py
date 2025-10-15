@@ -443,6 +443,66 @@ class CommandProcessor:
                 }
                 response['success'] = True
 
+            # ======================================================================
+            # Configuration Commands
+            # ======================================================================
+            elif command == 'configure_logging':
+                # Создаем конфигурацию логирования
+                from atol_integration.config.logging_config import LoggingConfig
+
+                config = LoggingConfig()
+
+                # Устанавливаем уровни для категорий
+                if 'root_level' in kwargs:
+                    config.set_root_level(kwargs['root_level'])
+                if 'fiscal_printer_level' in kwargs:
+                    config.set_category_level('FiscalPrinter', kwargs['fiscal_printer_level'])
+                if 'transport_level' in kwargs:
+                    config.set_category_level('Transport', kwargs['transport_level'])
+                if 'ethernet_over_transport_level' in kwargs:
+                    config.set_category_level('EthernetOverTransport', kwargs['ethernet_over_transport_level'])
+                if 'device_debug_level' in kwargs:
+                    config.set_category_level('DeviceDebug', kwargs['device_debug_level'])
+                if 'usb_level' in kwargs:
+                    config.set_category_level('USB', kwargs['usb_level'])
+                if 'com_level' in kwargs:
+                    config.set_category_level('COM', kwargs['com_level'])
+                if 'tcp_level' in kwargs:
+                    config.set_category_level('TCP', kwargs['tcp_level'])
+                if 'bluetooth_level' in kwargs:
+                    config.set_category_level('Bluetooth', kwargs['bluetooth_level'])
+
+                # Включить консольный вывод
+                if kwargs.get('enable_console', False):
+                    config.enable_console_logging()
+
+                # Установить количество дней хранения
+                if 'max_days_keep' in kwargs:
+                    config.set_max_days_keep(kwargs['max_days_keep'])
+
+                # Применить конфигурацию
+                config.write_config()
+
+                response['success'] = True
+                response['message'] = "Конфигурация логирования обновлена"
+                response['data'] = {'config_path': config.get_config_path()}
+
+            elif command == 'change_driver_label':
+                label = kwargs['label']
+                self.driver.change_label(label)
+                response['success'] = True
+                response['message'] = f"Метка драйвера изменена на: {label}"
+
+            elif command == 'get_default_logging_config':
+                from atol_integration.config.logging_config import LoggingConfig
+
+                config = LoggingConfig()
+                default_config = config.get_default_config()
+
+                response['success'] = True
+                response['message'] = "Конфигурация по умолчанию получена"
+                response['data'] = default_config
+
             else:
                 response['message'] = f"Неизвестная команда: {command}"
 
