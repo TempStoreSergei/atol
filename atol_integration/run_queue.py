@@ -165,8 +165,11 @@ class CommandProcessor:
             elif command == 'connection_is_opened':
                 is_opened = self.fptr.isOpened()
                 response['success'] = True
-                response['data'] = {'is_opened': is_opened}
                 response['message'] = "Соединение активно" if is_opened else "Соединение не установлено"
+                response['data'] = {
+                    'is_opened': is_opened,
+                    'message': response['message']
+                }
 
             # ======================================================================
             # Shift Commands
@@ -269,6 +272,39 @@ class CommandProcessor:
             # ======================================================================
             # Print Commands
             # ======================================================================
+            elif command == 'print_text':
+                text = kwargs.get('text', '')
+                alignment = kwargs.get('alignment', IFptr.LIBFPTR_ALIGNMENT_LEFT)
+                wrap = kwargs.get('wrap', IFptr.LIBFPTR_TW_NONE)
+
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_TEXT, text)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_ALIGNMENT, alignment)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_TEXT_WRAP, wrap)
+                self._check_result(self.fptr.printText(), "печати текста")
+                response['success'] = True
+                response['message'] = f"Текст напечатан: '{text}'"
+
+            elif command == 'print_feed':
+                lines = kwargs.get('lines', 1)
+                for _ in range(lines):
+                    self._check_result(self.fptr.printText(), "промотки ленты")
+                response['success'] = True
+                response['message'] = f"Промотано строк: {lines}"
+
+            elif command == 'print_barcode':
+                barcode = kwargs['barcode']
+                barcode_type = kwargs.get('barcode_type', IFptr.LIBFPTR_BT_QR)
+                alignment = kwargs.get('alignment', IFptr.LIBFPTR_ALIGNMENT_LEFT)
+                scale = kwargs.get('scale', 2)
+
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_BARCODE, barcode)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_BARCODE_TYPE, barcode_type)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_ALIGNMENT, alignment)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_SCALE, scale)
+                self._check_result(self.fptr.printBarcode(), "печати штрихкода")
+                response['success'] = True
+                response['message'] = f"Штрихкод напечатан: '{barcode}'"
+
             elif command == 'print_x_report':
                 self.fptr.setParam(IFptr.LIBFPTR_PARAM_REPORT_TYPE, IFptr.LIBFPTR_RT_X)
                 self._check_result(self.fptr.report(), "печати X-отчета")

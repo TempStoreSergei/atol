@@ -117,4 +117,5 @@ async def play_arcane_melody(redis: RedisClient = Depends(get_redis_client)):
     **Внимание**: Во время воспроизведения мелодии ККТ будет занята и не сможет
     выполнять другие операции.
     """
-    return redis.execute_command('play_arcane_melody')
+    # Увеличиваем таймаут до 30 секунд, так как мелодия играет ~15 секунд
+    return redis.execute_command('play_arcane_melody', timeout=30)
