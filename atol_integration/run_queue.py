@@ -2,10 +2,10 @@ import json
 import datetime
 from typing import Any, Dict
 import redis
-from atol_integration.api.driver import AtolDriver, AtolDriverError
-from atol_integration.api.libfptr10 import IFptr
-from atol_integration.config.settings import settings
-from atol_integration.utils.logger import logger
+from .api.driver import AtolDriver, AtolDriverError
+from .api.libfptr10 import IFptr
+from .config.settings import settings
+from .utils.logger import logger
 
 
 class CommandProcessor:
@@ -448,7 +448,7 @@ class CommandProcessor:
             # ======================================================================
             elif command == 'configure_logging':
                 # Создаем конфигурацию логирования
-                from atol_integration.config.logging_config import LoggingConfig
+                from .config.logging_config import LoggingConfig
 
                 config = LoggingConfig()
 
@@ -494,7 +494,7 @@ class CommandProcessor:
                 response['message'] = f"Метка драйвера изменена на: {label}"
 
             elif command == 'get_default_logging_config':
-                from atol_integration.config.logging_config import LoggingConfig
+                from .config.logging_config import LoggingConfig
 
                 config = LoggingConfig()
                 default_config = config.get_default_config()

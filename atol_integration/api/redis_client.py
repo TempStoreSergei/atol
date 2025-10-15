@@ -4,8 +4,8 @@ import redis
 import time
 import threading
 from fastapi import HTTPException, status
-from atol_integration.config.settings import settings
-from atol_integration.utils.logger import logger
+from ..config.settings import settings
+from ..utils.logger import logger
 
 
 class RedisClient:
