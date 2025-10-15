@@ -1,4 +1,5 @@
 import json
+import datetime
 from typing import Any, Dict
 import redis
 from atol_integration.api.driver import AtolDriver, AtolDriverError
@@ -10,9 +11,13 @@ from atol_integration.utils.logger import logger
 driver = AtolDriver()
 fptr = driver.fptr
 
-def _check_result(operation: str):
-    if fptr.result() < 0:
-        raise AtolDriverError(f"Ошибка {operation}: {fptr.errorDescription()}", error_code=fptr.errorCode())
+def _check_result(result: int, operation: str):
+    """Проверяет результат выполнения операции драйвера"""
+    if result < 0:
+        # Используем errorDescription() для получения текста ошибки
+        error_description = fptr.errorDescription()
+        error_code = fptr.errorCode()
+        raise AtolDriverError(f"Ошибка {operation}: {error_description}", error_code=error_code)
 
 def process_command(command_data: Dict[str, Any]) -> Dict[str, Any]:
     """Выполнение команды на основе полученной из pubsub"""
@@ -30,16 +35,14 @@ def process_command(command_data: Dict[str, Any]) -> Dict[str, Any]:
         # Connection Commands
         # ======================================================================
         if command == 'connection_open':
-            if 'settings' in kwargs:
-                fptr.setSettings(kwargs['settings'])
-            fptr.open()
-            _check_result("открытия соединения")
+            if 'settings' in kwargs and kwargs['settings'] is not None:
+                fptr.setSettings(json.dumps(kwargs['settings']))
+            _check_result(fptr.open(), "открытия соединения")
             response['success'] = True
             response['message'] = "Соединение с ККТ успешно установлено"
 
         elif command == 'connection_close':
-            fptr.close()
-            _check_result("закрытия соединения")
+            _check_result(fptr.close(), "закрытия соединения")
             response['success'] = True
             response['message'] = "Соединение с ККТ закрыто"
 
@@ -54,8 +57,7 @@ def process_command(command_data: Dict[str, Any]) -> Dict[str, Any]:
         # ======================================================================
         elif command == 'shift_open':
             fptr.setParam(IFptr.LIBFPTR_PARAM_OPERATOR_NAME, kwargs['cashier_name'])
-            fptr.openShift()
-            _check_result("открытия смены")
+            _check_result(fptr.openShift(), "открытия смены")
             shift_number = fptr.getParamInt(IFptr.LIBFPTR_PARAM_SHIFT_NUMBER)
             response['success'] = True
             response['message'] = f"Смена #{shift_number} успешно открыта"
@@ -63,38 +65,13 @@ def process_command(command_data: Dict[str, Any]) -> Dict[str, Any]:
 
         elif command == 'shift_close':
             fptr.setParam(IFptr.LIBFPTR_PARAM_OPERATOR_NAME, kwargs['cashier_name'])
-            fptr.closeShift()
-            _check_result("закрытия смены")
+            _check_result(fptr.closeShift(), "закрытия смены")
             response['success'] = True
             response['data'] = {
                 "shift_number": fptr.getParamInt(IFptr.LIBFPTR_PARAM_SHIFT_NUMBER),
                 "fiscal_document_number": fptr.getParamInt(IFptr.LIBFPTR_PARAM_FISCAL_DOCUMENT_NUMBER),
-                "fiscal_document_sign": fptr.getParamInt(IFptr.LIBFPTR_PARAM_FISCAL_DOCUMENT_SIGN),
-                "fiscal_storage_number": fptr.getParamString(IFptr.LIBFPTR_PARAM_FISCAL_STORAGE_NUMBER),
             }
             response['message'] = "Смена успешно закрыта, Z-отчет напечатан"
-
-        elif command == 'shift_get_status':
-            fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_SHIFT_STATE)
-            fptr.queryData()
-            _check_result("запроса статуса смены")
-            shift_state = fptr.getParamInt(IFptr.LIBFPTR_PARAM_SHIFT_STATE)
-            shift_opened = (shift_state in [1, 3])
-            response['success'] = True
-            response['data'] = {
-                "shift_opened": shift_opened,
-                "shift_number": fptr.getParamInt(IFptr.LIBFPTR_PARAM_SHIFT_NUMBER),
-                "shift_expired": (shift_state == 3),
-                "receipts_count": fptr.getParamInt(IFptr.LIBFPTR_PARAM_DOCUMENT_NUMBER) if shift_opened else None
-            }
-
-        elif command == 'shift_print_x_report':
-            fptr.setParam(IFptr.LIBFPTR_PARAM_OPERATOR_NAME, kwargs['cashier_name'])
-            fptr.setParam(IFptr.LIBFPTR_PARAM_REPORT_TYPE, IFptr.LIBFPTR_RT_X)
-            fptr.report()
-            _check_result("печати X-отчета")
-            response['success'] = True
-            response['message'] = "X-отчет успешно напечатан"
 
         # ======================================================================
         # Receipt Commands
@@ -105,118 +82,90 @@ def process_command(command_data: Dict[str, Any]) -> Dict[str, Any]:
             if kwargs.get('customer_contact'):
                 fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_ELECTRONICALLY, True)
                 fptr.setParam(IFptr.LIBFPTR_PARAM_BUYER_EMAIL_OR_PHONE, kwargs['customer_contact'])
-            fptr.openReceipt()
-            _check_result("открытия чека")
+            _check_result(fptr.openReceipt(), "открытия чека")
             response['success'] = True
             response['message'] = f"Чек типа {kwargs['receipt_type']} успешно открыт"
 
         elif command == 'receipt_add_item':
-            fptr.setParam(IFptr.LIBFPTR_PARAM_COMMODITY_NAME, kwargs['name'])
-            fptr.setParam(IFptr.LIBFPTR_PARAM_PRICE, kwargs['price'])
-            fptr.setParam(IFptr.LIBFPTR_PARAM_QUANTITY, kwargs['quantity'])
-            fptr.setParam(IFptr.LIBFPTR_PARAM_TAX_TYPE, kwargs['tax_type'])
-            if 'payment_method' in kwargs:
-                fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE_SIGN, kwargs['payment_method'])
-            if 'payment_object' in kwargs:
-                fptr.setParam(IFptr.LIBFPTR_PARAM_COMMODITY_SIGN, kwargs['payment_object'])
-            fptr.registration()
-            _check_result("регистрации позиции")
+            for key, value in kwargs.items():
+                if key == 'name': fptr.setParam(IFptr.LIBFPTR_PARAM_COMMODITY_NAME, value)
+                elif key == 'price': fptr.setParam(IFptr.LIBFPTR_PARAM_PRICE, value)
+                elif key == 'quantity': fptr.setParam(IFptr.LIBFPTR_PARAM_QUANTITY, value)
+                elif key == 'tax_type': fptr.setParam(IFptr.LIBFPTR_PARAM_TAX_TYPE, value)
+                elif key == 'payment_method': fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE_SIGN, value)
+                elif key == 'payment_object': fptr.setParam(IFptr.LIBFPTR_PARAM_COMMODITY_SIGN, value)
+            _check_result(fptr.registration(), "регистрации позиции")
             response['success'] = True
             response['message'] = f"Позиция '{kwargs['name']}' добавлена"
 
         elif command == 'receipt_add_payment':
             fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, kwargs['payment_type'])
             fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_SUM, kwargs['amount'])
-            fptr.payment()
-            _check_result("регистрации оплаты")
+            _check_result(fptr.payment(), "регистрации оплаты")
             response['success'] = True
             response['message'] = f"Оплата {kwargs['amount']:.2f} добавлена"
 
         elif command == 'receipt_close':
-            fptr.closeReceipt()
-            _check_result("закрытия чека")
+            _check_result(fptr.closeReceipt(), "закрытия чека")
             response['success'] = True
             response['data'] = {
                 "fiscal_document_number": fptr.getParamInt(IFptr.LIBFPTR_PARAM_FISCAL_DOCUMENT_NUMBER),
                 "fiscal_document_sign": fptr.getParamInt(IFptr.LIBFPTR_PARAM_FISCAL_DOCUMENT_SIGN),
-                "fiscal_storage_number": fptr.getParamString(IFptr.LIBFPTR_PARAM_FISCAL_STORAGE_NUMBER),
                 "shift_number": fptr.getParamInt(IFptr.LIBFPTR_PARAM_SHIFT_NUMBER),
-                "receipt_number": fptr.getParamInt(IFptr.LIBFPTR_PARAM_DOCUMENT_NUMBER),
-                "fiscal_document_datetime": fptr.getParamDateTime(IFptr.LIBFPTR_PARAM_DATE_TIME).isoformat()
             }
             response['message'] = "Чек успешно закрыт и напечатан"
 
-        elif command == 'receipt_cancel':
-            fptr.cancelReceipt()
-            _check_result("отмены чека")
-            response['success'] = True
-            response['message'] = "Чек успешно отменён"
-
         # ======================================================================
-        # Cash Commands
+        # Query Commands (All of them)
         # ======================================================================
-        elif command == 'cash_in':
-            fptr.setParam(IFptr.LIBFPTR_PARAM_SUM, kwargs['amount'])
-            fptr.setParam(IFptr.LIBFPTR_PARAM_OPERATOR_NAME, kwargs['cashier_name'])
-            fptr.cashIncome()
-            _check_result("внесения наличных")
+        elif command == 'get_status':
+            fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_STATUS)
+            _check_result(fptr.queryData(), "запроса статуса")
+            response['data'] = {
+                "model_name": fptr.getParamString(IFptr.LIBFPTR_PARAM_MODEL_NAME),
+                "serial_number": fptr.getParamString(IFptr.LIBFPTR_PARAM_SERIAL_NUMBER),
+                "shift_state": fptr.getParamInt(IFptr.LIBFPTR_PARAM_SHIFT_STATE),
+                "cover_opened": fptr.getParamBool(IFptr.LIBFPTR_PARAM_COVER_OPENED),
+                "paper_present": fptr.getParamBool(IFptr.LIBFPTR_PARAM_RECEIPT_PAPER_PRESENT),
+            }
             response['success'] = True
-            response['message'] = f"Внесение {kwargs['amount']:.2f} руб. успешно выполнено"
 
-        elif command == 'cash_out':
-            fptr.setParam(IFptr.LIBFPTR_PARAM_SUM, kwargs['amount'])
-            fptr.setParam(IFptr.LIBFPTR_PARAM_OPERATOR_NAME, kwargs['cashier_name'])
-            fptr.cashOutcome()
-            _check_result("изъятия наличных")
+        elif command == 'get_short_status':
+            fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_SHORT_STATUS)
+            _check_result(fptr.queryData(), "короткого запроса статуса")
+            response['data'] = {
+                "cashdrawer_opened": fptr.getParamBool(IFptr.LIBFPTR_PARAM_CASHDRAWER_OPENED),
+                "paper_present": fptr.getParamBool(IFptr.LIBFPTR_PARAM_RECEIPT_PAPER_PRESENT),
+                "paper_near_end": fptr.getParamBool(IFptr.LIBFPTR_PARAM_PAPER_NEAR_END),
+                "cover_opened": fptr.getParamBool(IFptr.LIBFPTR_PARAM_COVER_OPENED),
+            }
             response['success'] = True
-            response['message'] = f"Изъятие {kwargs['amount']:.2f} руб. успешно выполнено"
+
+        elif command == 'get_cash_sum':
+            fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_CASH_SUM)
+            _check_result(fptr.queryData(), "запроса суммы наличных")
+            response['data'] = {"cash_sum": fptr.getParamDouble(IFptr.LIBFPTR_PARAM_SUM)}
+            response['success'] = True
+
+        elif command == 'get_shift_state':
+            fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_SHIFT_STATE)
+            _check_result(fptr.queryData(), "запроса состояния смены")
+            dt = fptr.getParamDateTime(IFptr.LIBFPTR_PARAM_DATE_TIME)
+            response['data'] = {
+                "shift_state": fptr.getParamInt(IFptr.LIBFPTR_PARAM_SHIFT_STATE),
+                "shift_number": fptr.getParamInt(IFptr.LIBFPTR_PARAM_SHIFT_NUMBER),
+                "date_time": dt.isoformat() if isinstance(dt, datetime.datetime) else None,
+            }
+            response['success'] = True
         
-        elif command == 'cash_drawer_open':
-            fptr.openCashDrawer()
-            _check_result("открытия денежного ящика")
+        elif command == 'get_receipt_state':
+            fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_RECEIPT_STATE)
+            _check_result(fptr.queryData(), "запроса состояния чека")
+            response['data'] = {
+                "receipt_type": fptr.getParamInt(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE),
+                "receipt_sum": fptr.getParamDouble(IFptr.LIBFPTR_PARAM_RECEIPT_SUM),
+            }
             response['success'] = True
-            response['message'] = "Команда на открытие денежного ящика отправлена"
-
-        # ======================================================================
-        # Print Commands
-        # ======================================================================
-        elif command == 'print_text':
-            fptr.setParam(IFptr.LIBFPTR_PARAM_TEXT, kwargs['text'])
-            fptr.setParam(IFptr.LIBFPTR_PARAM_ALIGNMENT, kwargs.get('alignment', IFptr.LIBFPTR_ALIGNMENT_LEFT))
-            fptr.setParam(IFptr.LIBFPTR_PARAM_TEXT_WRAP, kwargs.get('wrap', IFptr.LIBFPTR_TW_AUTO))
-            fptr.printText()
-            _check_result("печати текста")
-            response['success'] = True
-            response['message'] = "Текст напечатан"
-
-        elif command == 'print_barcode':
-            fptr.setParam(IFptr.LIBFPTR_PARAM_BARCODE, kwargs['barcode'])
-            fptr.setParam(IFptr.LIBFPTR_PARAM_BARCODE_TYPE, kwargs['barcode_type'])
-            fptr.setParam(IFptr.LIBFPTR_PARAM_ALIGNMENT, kwargs.get('alignment', IFptr.LIBFPTR_ALIGNMENT_CENTER))
-            fptr.setParam(IFptr.LIBFPTR_PARAM_SCALE, kwargs.get('scale', 2))
-            fptr.printBarcode()
-            _check_result("печати штрихкода")
-            response['success'] = True
-            response['message'] = "Штрихкод напечатан"
-
-        # ======================================================================
-        # Query Commands (Generic)
-        # ======================================================================
-        elif command == 'query_data':
-            # Generic command to access all queryData functions
-            # kwargs: {'data_type': int, 'params': {param_id: value, ...}}
-            fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, kwargs['data_type'])
-            if 'params' in kwargs:
-                for p_id, p_val in kwargs['params'].items():
-                    fptr.setParam(p_id, p_val)
-            fptr.queryData()
-            _check_result(f"запроса данных (тип {kwargs['data_type']})")
-            
-            # The client is responsible for knowing what params to get
-            response['success'] = True
-            response['message'] = "Запрос данных выполнен"
-            # Example of how a client could get the result:
-            # response['data'] = {'serial': fptr.getParamString(IFptr.LIBFPTR_PARAM_SERIAL_NUMBER)}
 
         else:
             response['message'] = f"Неизвестная команда: {command}"
@@ -230,12 +179,10 @@ def process_command(command_data: Dict[str, Any]) -> Dict[str, Any]:
 
     return response
 
-
 def listen_to_redis():
     """Подключение к Redis и обработка команд"""
     r = redis.Redis(host=settings.redis_host, port=settings.redis_port, decode_responses=True)
     pubsub = r.pubsub()
-
     channel = 'command_fr_channel'
     response_channel = f'{channel}_response'
     pubsub.subscribe(channel)
@@ -247,17 +194,14 @@ def listen_to_redis():
                 continue
             try:
                 command_data = json.loads(message.get('data'))
-                logger.info(f"Получена команда: {command_data}")
-
+                logger.debug(f"Получена команда: {command_data}")
                 response = process_command(command_data)
-
                 r.publish(response_channel, json.dumps(response, ensure_ascii=False))
-                logger.info(f"Ответ отправлен в канал '{response_channel}': {response}")
+                logger.debug(f"Ответ отправлен в канал '{response_channel}': {response}")
             except json.JSONDecodeError as e:
                 logger.error(f"Ошибка парсинга команды: {e}")
             except Exception as e:
                 logger.error(f"Неожиданная ошибка: {e}")
-
 
 if __name__ == "__main__":
     listen_to_redis()
