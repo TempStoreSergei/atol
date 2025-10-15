@@ -440,6 +440,104 @@ class CommandProcessor:
                 response['data'] = {
                     "receipt_type": self.fptr.getParamInt(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE),
                     "receipt_sum": self.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_RECEIPT_SUM),
+                    "receipt_number": self.fptr.getParamInt(IFptr.LIBFPTR_PARAM_RECEIPT_NUMBER),
+                    "document_number": self.fptr.getParamInt(IFptr.LIBFPTR_PARAM_DOCUMENT_NUMBER),
+                    "remainder": self.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_REMAINDER),
+                    "change": self.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_CHANGE),
+                }
+                response['success'] = True
+
+            elif command == 'get_datetime':
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_DATE_TIME)
+                self._check_result(self.fptr.queryData(), "запроса даты и времени")
+                dt = self.fptr.getParamDateTime(IFptr.LIBFPTR_PARAM_DATE_TIME)
+                response['data'] = {
+                    "date_time": dt.isoformat() if isinstance(dt, datetime.datetime) else None
+                }
+                response['success'] = True
+
+            elif command == 'get_serial_number':
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_SERIAL_NUMBER)
+                self._check_result(self.fptr.queryData(), "запроса заводского номера")
+                response['data'] = {
+                    "serial_number": self.fptr.getParamString(IFptr.LIBFPTR_PARAM_SERIAL_NUMBER)
+                }
+                response['success'] = True
+
+            elif command == 'get_model_info':
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_MODEL_INFO)
+                self._check_result(self.fptr.queryData(), "запроса информации о модели")
+                response['data'] = {
+                    "model": self.fptr.getParamInt(IFptr.LIBFPTR_PARAM_MODEL),
+                    "model_name": self.fptr.getParamString(IFptr.LIBFPTR_PARAM_MODEL_NAME),
+                    "firmware_version": self.fptr.getParamString(IFptr.LIBFPTR_PARAM_UNIT_VERSION),
+                }
+                response['success'] = True
+
+            elif command == 'get_receipt_line_length':
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_RECEIPT_LINE_LENGTH)
+                self._check_result(self.fptr.queryData(), "запроса ширины чековой ленты")
+                response['data'] = {
+                    "char_line_length": self.fptr.getParamInt(IFptr.LIBFPTR_PARAM_RECEIPT_LINE_LENGTH),
+                    "pix_line_length": self.fptr.getParamInt(IFptr.LIBFPTR_PARAM_RECEIPT_LINE_LENGTH_PIX),
+                }
+                response['success'] = True
+
+            elif command == 'get_unit_version':
+                unit_type = kwargs.get('unit_type', IFptr.LIBFPTR_UT_FIRMWARE)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_UNIT_VERSION)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_UNIT_TYPE, unit_type)
+                self._check_result(self.fptr.queryData(), "запроса версии модуля")
+                result_data = {
+                    "unit_version": self.fptr.getParamString(IFptr.LIBFPTR_PARAM_UNIT_VERSION)
+                }
+                # Для конфигурации также возвращается версия релиза
+                if unit_type == IFptr.LIBFPTR_UT_CONFIGURATION:
+                    result_data["release_version"] = self.fptr.getParamString(IFptr.LIBFPTR_PARAM_UNIT_RELEASE_VERSION)
+                response['data'] = result_data
+                response['success'] = True
+
+            elif command == 'get_payment_sum':
+                payment_type = kwargs['payment_type']
+                receipt_type = kwargs['receipt_type']
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_PAYMENT_SUM)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_PAYMENT_TYPE, payment_type)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, receipt_type)
+                self._check_result(self.fptr.queryData(), "запроса суммы платежей")
+                response['data'] = {
+                    "sum": self.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_SUM)
+                }
+                response['success'] = True
+
+            elif command == 'get_cashin_sum':
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_CASHIN_SUM)
+                self._check_result(self.fptr.queryData(), "запроса суммы внесений")
+                response['data'] = {"sum": self.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_SUM)}
+                response['success'] = True
+
+            elif command == 'get_cashout_sum':
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_CASHOUT_SUM)
+                self._check_result(self.fptr.queryData(), "запроса суммы выплат")
+                response['data'] = {"sum": self.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_SUM)}
+                response['success'] = True
+
+            elif command == 'get_receipt_count':
+                receipt_type = kwargs['receipt_type']
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_RECEIPT_COUNT)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, receipt_type)
+                self._check_result(self.fptr.queryData(), "запроса количества чеков")
+                response['data'] = {
+                    "count": self.fptr.getParamInt(IFptr.LIBFPTR_PARAM_DOCUMENTS_COUNT)
+                }
+                response['success'] = True
+
+            elif command == 'get_non_nullable_sum':
+                receipt_type = kwargs['receipt_type']
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_NON_NULLABLE_SUM)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_RECEIPT_TYPE, receipt_type)
+                self._check_result(self.fptr.queryData(), "запроса необнуляемой суммы")
+                response['data'] = {
+                    "sum": self.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_SUM)
                 }
                 response['success'] = True
 
