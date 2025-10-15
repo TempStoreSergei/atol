@@ -11,6 +11,7 @@ from ..routes import (
     cash_routes,
     config_routes,
     connection_routes,
+    operator_routes,
     print_routes,
     query_routes,
     receipt_routes,
@@ -32,6 +33,7 @@ app = FastAPI(
 
 # ========== ПОДКЛЮЧЕНИЕ РОУТЕРОВ ==========
 app.include_router(connection_routes.router)
+app.include_router(operator_routes.router)
 app.include_router(receipt_routes.router)
 app.include_router(shift_routes.router)
 app.include_router(cash_routes.router)

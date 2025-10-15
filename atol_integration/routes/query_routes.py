@@ -197,3 +197,96 @@ async def get_non_nullable_sum(
     """
     return redis.execute_command('get_non_nullable_sum', {'receipt_type': receipt_type})
 
+
+# ========== ПИТАНИЕ И ТЕМПЕРАТУРА ==========
+
+@router.get("/power-source-state")
+async def get_power_source_state(
+    power_source_type: int = Query(
+        IFptr.LIBFPTR_PST_BATTERY,
+        description="Тип источника: 0=блок питания, 1=батарея часов, 2=аккумуляторы"
+    ),
+    redis: RedisClient = Depends(get_redis_client)
+):
+    """
+    Запрос состояния источника питания.
+
+    Типы источников (LIBFPTR_PARAM_POWER_SOURCE_TYPE):
+    - 0 (LIBFPTR_PST_POWER_SUPPLY): Внешний блок питания
+    - 1 (LIBFPTR_PST_RTC_BATTERY): Батарея часов
+    - 2 (LIBFPTR_PST_BATTERY): Встроенные аккумуляторы (по умолчанию)
+
+    Возвращает: заряд аккумулятора (%), напряжение (В), работа от аккумулятора,
+    идет зарядка, может ли печатать при текущем заряде.
+    """
+    return redis.execute_command('get_power_source_state', {'power_source_type': power_source_type})
+
+
+@router.get("/printer-temperature")
+async def get_printer_temperature(redis: RedisClient = Depends(get_redis_client)):
+    """
+    Запрос температуры термопечатающей головки (ТПГ).
+
+    Возвращает температуру в градусах Цельсия.
+    """
+    return redis.execute_command('get_printer_temperature')
+
+
+# ========== ДИАГНОСТИКА И ОШИБКИ ==========
+
+@router.get("/fatal-status")
+async def get_fatal_status(redis: RedisClient = Depends(get_redis_client)):
+    """
+    Запрос фатальных ошибок ККТ.
+
+    Возвращает флаги критических ошибок:
+    - Отсутствие серийного номера
+    - Сбой часов (RTC)
+    - Сбой настроек
+    - Сбой счетчиков
+    - Сбой пользовательской памяти
+    - Сбой сервисных регистров
+    - Сбой реквизитов
+    - Фатальная ошибка ФН
+    - Установлен ФН из другой ККТ
+    - Фатальная аппаратная ошибка
+    - Ошибка диспетчера памяти
+    - Шаблоны повреждены
+    - Требуется перезагрузка
+    - Ошибка универсальных счётчиков
+    - Ошибка таблицы товаров
+    """
+    return redis.execute_command('get_fatal_status')
+
+
+# ========== СЕТЕВЫЕ ИНТЕРФЕЙСЫ ==========
+
+@router.get("/mac-address")
+async def get_mac_address(redis: RedisClient = Depends(get_redis_client)):
+    """Запрос MAC-адреса Ethernet."""
+    return redis.execute_command('get_mac_address')
+
+
+@router.get("/ethernet-info")
+async def get_ethernet_info(redis: RedisClient = Depends(get_redis_client)):
+    """
+    Запрос текущей конфигурации Ethernet.
+
+    Возвращает: IP-адрес, маска сети, шлюз, DNS, порт, таймаут, DHCP, статический DNS.
+
+    Поддерживается только для ККТ версий 5.X.
+    """
+    return redis.execute_command('get_ethernet_info')
+
+
+@router.get("/wifi-info")
+async def get_wifi_info(redis: RedisClient = Depends(get_redis_client)):
+    """
+    Запрос текущей конфигурации Wi-Fi.
+
+    Возвращает: IP-адрес, маска сети, шлюз, порт, таймаут, DHCP.
+
+    Поддерживается только для ККТ версий 5.X.
+    """
+    return redis.execute_command('get_wifi_info')
+

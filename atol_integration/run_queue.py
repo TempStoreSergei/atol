@@ -541,6 +541,113 @@ class CommandProcessor:
                 }
                 response['success'] = True
 
+            elif command == 'get_power_source_state':
+                power_source_type = kwargs.get('power_source_type', IFptr.LIBFPTR_PST_BATTERY)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_POWER_SOURCE_STATE)
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_POWER_SOURCE_TYPE, power_source_type)
+                self._check_result(self.fptr.queryData(), "запроса состояния источника питания")
+                response['data'] = {
+                    "battery_charge": self.fptr.getParamInt(IFptr.LIBFPTR_PARAM_BATTERY_CHARGE),
+                    "voltage": self.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_VOLTAGE),
+                    "use_battery": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_USE_BATTERY),
+                    "battery_charging": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_BATTERY_CHARGING),
+                    "can_print_while_on_battery": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_CAN_PRINT_WHILE_ON_BATTERY),
+                }
+                response['success'] = True
+
+            elif command == 'get_printer_temperature':
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_PRINTER_TEMPERATURE)
+                self._check_result(self.fptr.queryData(), "запроса температуры ТПГ")
+                response['data'] = {
+                    "printer_temperature": self.fptr.getParamDouble(IFptr.LIBFPTR_PARAM_PRINTER_TEMPERATURE)
+                }
+                response['success'] = True
+
+            elif command == 'get_fatal_status':
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_FATAL_STATUS)
+                self._check_result(self.fptr.queryData(), "запроса фатальных ошибок")
+                response['data'] = {
+                    "no_serial_number": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_NO_SERIAL_NUMBER),
+                    "rtc_fault": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_RTC_FAULT),
+                    "settings_fault": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_SETTINGS_FAULT),
+                    "counters_fault": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_COUNTERS_FAULT),
+                    "user_memory_fault": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_USER_MEMORY_FAULT),
+                    "service_counters_fault": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_SERVICE_COUNTERS_FAULT),
+                    "attributes_fault": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_ATTRIBUTES_FAULT),
+                    "fn_fault": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_FN_FAULT),
+                    "invalid_fn": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_INVALID_FN),
+                    "hard_fault": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_HARD_FAULT),
+                    "memory_manager_fault": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_MEMORY_MANAGER_FAULT),
+                    "scripts_fault": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_SCRIPTS_FAULT),
+                    "wait_for_reboot": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_WAIT_FOR_REBOOT),
+                    "universal_counters_fault": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_UNIVERSAL_COUNTERS_FAULT),
+                    "commodities_table_fault": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_COMMODITIES_TABLE_FAULT),
+                }
+                response['success'] = True
+
+            elif command == 'get_mac_address':
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_MAC_ADDRESS)
+                self._check_result(self.fptr.queryData(), "запроса MAC-адреса")
+                response['data'] = {
+                    "mac_address": self.fptr.getParamString(IFptr.LIBFPTR_PARAM_MAC_ADDRESS)
+                }
+                response['success'] = True
+
+            elif command == 'get_ethernet_info':
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_ETHERNET_INFO)
+                self._check_result(self.fptr.queryData(), "запроса конфигурации Ethernet")
+                response['data'] = {
+                    "ip": self.fptr.getParamString(IFptr.LIBFPTR_PARAM_ETHERNET_IP),
+                    "mask": self.fptr.getParamString(IFptr.LIBFPTR_PARAM_ETHERNET_MASK),
+                    "gateway": self.fptr.getParamString(IFptr.LIBFPTR_PARAM_ETHERNET_GATEWAY),
+                    "dns": self.fptr.getParamString(IFptr.LIBFPTR_PARAM_ETHERNET_DNS_IP),
+                    "timeout": self.fptr.getParamInt(IFptr.LIBFPTR_PARAM_ETHERNET_CONFIG_TIMEOUT),
+                    "port": self.fptr.getParamInt(IFptr.LIBFPTR_PARAM_ETHERNET_PORT),
+                    "dhcp": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_ETHERNET_DHCP),
+                    "dns_static": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_ETHERNET_DNS_STATIC),
+                }
+                response['success'] = True
+
+            elif command == 'get_wifi_info':
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_DATA_TYPE, IFptr.LIBFPTR_DT_WIFI_INFO)
+                self._check_result(self.fptr.queryData(), "запроса конфигурации Wi-Fi")
+                response['data'] = {
+                    "ip": self.fptr.getParamString(IFptr.LIBFPTR_PARAM_WIFI_IP),
+                    "mask": self.fptr.getParamString(IFptr.LIBFPTR_PARAM_WIFI_MASK),
+                    "gateway": self.fptr.getParamString(IFptr.LIBFPTR_PARAM_WIFI_GATEWAY),
+                    "timeout": self.fptr.getParamInt(IFptr.LIBFPTR_PARAM_WIFI_CONFIG_TIMEOUT),
+                    "port": self.fptr.getParamInt(IFptr.LIBFPTR_PARAM_WIFI_PORT),
+                    "dhcp": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_WIFI_DHCP),
+                }
+                response['success'] = True
+
+            # ======================================================================
+            # Operator & Document Commands
+            # ======================================================================
+            elif command == 'operator_login':
+                operator_name = kwargs['operator_name']
+                operator_vatin = kwargs.get('operator_vatin', '')
+                self.fptr.setParam(1021, operator_name)
+                if operator_vatin:
+                    self.fptr.setParam(1203, operator_vatin)
+                self._check_result(self.fptr.operatorLogin(), "регистрации кассира")
+                response['success'] = True
+                response['message'] = f"Кассир '{operator_name}' зарегистрирован"
+
+            elif command == 'continue_print':
+                self._check_result(self.fptr.continuePrint(), "допечатывания документа")
+                response['success'] = True
+                response['message'] = "Документ допечатан"
+
+            elif command == 'check_document_closed':
+                self._check_result(self.fptr.checkDocumentClosed(), "проверки закрытия документа")
+                response['data'] = {
+                    "document_closed": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_DOCUMENT_CLOSED),
+                    "document_printed": self.fptr.getParamBool(IFptr.LIBFPTR_PARAM_DOCUMENT_PRINTED),
+                }
+                response['success'] = True
+                response['message'] = "Состояние документа проверено"
+
             # ======================================================================
             # Configuration Commands
             # ======================================================================
