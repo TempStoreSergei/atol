@@ -7,8 +7,26 @@ from fastapi import HTTPException, status
 from atol_integration.config.settings import settings
 from atol_integration.utils.logger import logger
 
+
 class RedisClient:
-    def __init__(self, host=settings.redis_host, port=settings.redis_port):
+    """Redis клиент с паттерном Singleton"""
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls):
+        """Реализация паттерна Singleton - создается только один экземпляр"""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super(RedisClient, cls).__new__(cls)
+                    cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self):
+        """Инициализация клиента (выполняется только один раз)"""
+        if self._initialized:
+            return
+
         self.redis_conn = None
         self.pubsub = None
         self.listener_thread = None
@@ -18,12 +36,17 @@ class RedisClient:
         self.response_channel = f"{self.command_channel}_response"
 
         try:
-            self.redis_conn = redis.Redis(host=host, port=port, decode_responses=True)
+            self.redis_conn = redis.Redis(
+                host=settings.redis_host,
+                port=settings.redis_port,
+                decode_responses=True
+            )
             self.redis_conn.ping()
-            logger.info(f"Successfully connected to Redis at {host}:{port}")
+            logger.info(f"Successfully connected to Redis at {settings.redis_host}:{settings.redis_port}")
             self._start_listener()
+            self._initialized = True
         except redis.exceptions.ConnectionError as e:
-            logger.error(f"Could not connect to Redis at {host}:{port}: {e}")
+            logger.error(f"Could not connect to Redis at {settings.redis_host}:{settings.redis_port}: {e}")
 
     def _start_listener(self):
         """Запускает фоновый поток для прослушивания ответов."""
@@ -87,9 +110,11 @@ class RedisClient:
             detail=f"Timeout waiting for response from fiscal registrar worker for command '{command}'."
         )
 
-# Глобальный экземпляр клиента для использования в приложении
-redis_client = RedisClient()
+def get_redis_client() -> RedisClient:
+    """
+    Зависимость FastAPI для получения клиента Redis.
 
-def get_redis_client():
-    """Зависимость FastAPI для получения клиента Redis."""
-    return redis_client
+    Возвращает Singleton экземпляр RedisClient.
+    Не использует глобальные переменные!
+    """
+    return RedisClient()

@@ -114,9 +114,14 @@ async def print_text(
     return redis.execute_command('print_text', request.model_dump(exclude_none=True))
 
 
+class PrintFeedRequest(BaseModel):
+    """Запрос на промотку ленты"""
+    lines: int = Field(1, description="Количество пустых строк для промотки", ge=1, le=100)
+
+
 @router.post("/feed", response_model=StatusResponse)
 async def feed_line(
-    lines: int = Field(1, description="Количество пустых строк для промотки", ge=1, le=100),
+    request: PrintFeedRequest = PrintFeedRequest(),
     redis: RedisClient = Depends(get_redis_client)
 ):
     """
@@ -124,7 +129,7 @@ async def feed_line(
 
     **Внимание:** Не рекомендуется печатать вне открытых документов!
     """
-    return redis.execute_command('print_feed', {'lines': lines})
+    return redis.execute_command('print_feed', request.model_dump())
 
 
 # ========== ПЕЧАТЬ ШТРИХКОДА ==========

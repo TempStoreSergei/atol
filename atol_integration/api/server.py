@@ -15,7 +15,7 @@ from ..routes import (
     receipt_routes,
     shift_routes,
 )
-from .redis_client import redis_client
+from .redis_client import RedisClient
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -47,8 +47,10 @@ async def root():
     """Корневой endpoint с информацией о API"""
     redis_ok = False
     try:
-        if redis_client.redis_conn:
-            redis_ok = redis_client.redis_conn.ping()
+        # Получаем Singleton экземпляр
+        redis = RedisClient()
+        if redis.redis_conn:
+            redis_ok = redis.redis_conn.ping()
     except Exception:
         redis_ok = False
 
@@ -65,8 +67,10 @@ async def health():
     """Проверка здоровья сервиса"""
     redis_ok = False
     try:
-        if redis_client.redis_conn:
-            redis_ok = redis_client.redis_conn.ping()
+        # Получаем Singleton экземпляр
+        redis = RedisClient()
+        if redis.redis_conn:
+            redis_ok = redis.redis_conn.ping()
     except Exception:
         redis_ok = False
 
