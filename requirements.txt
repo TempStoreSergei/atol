@@ -7,6 +7,12 @@ python-dotenv>=1.0.0
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 
+# Redis
+redis>=5.0.0
+
+# Redis
+redis>=5.0.0
+
 # АТОЛ драйвер ККТ (требует установки драйвера с сайта АТОЛ)
 # Скачать: https://fs.atol.ru/
 # Документация: https://integration.atol.ru/api/
