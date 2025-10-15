@@ -234,6 +234,58 @@ async def print_picture_by_number(
     return redis.execute_command('print_picture_by_number', request.model_dump(exclude_none=True))
 
 
+# ========== НЕФИСКАЛЬНЫЕ ДОКУМЕНТЫ ==========
+
+@router.post("/document/open", response_model=StatusResponse)
+async def open_nonfiscal_document(redis: RedisClient = Depends(get_redis_client)):
+    """
+    Открыть нефискальный документ.
+
+    **Важно:** Нефискальный документ - это чек, который не передается в ОФД.
+    Используется для печати служебной информации, логотипов, объявлений и т.д.
+
+    **Обязательно закрывайте документ** после печати с помощью `/document/close`!
+
+    **Порядок работы:**
+    1. Открыть документ (`/document/open`)
+    2. Печатать текст, штрихкоды, картинки (`/text`, `/barcode`, `/picture`)
+    3. Закрыть документ (`/document/close`)
+    """
+    return redis.execute_command('open_nonfiscal_document')
+
+
+@router.post("/document/close", response_model=StatusResponse)
+async def close_nonfiscal_document(redis: RedisClient = Depends(get_redis_client)):
+    """
+    Закрыть нефискальный документ.
+
+    Завершает печать нефискального документа и отрезает чек.
+    """
+    return redis.execute_command('close_nonfiscal_document')
+
+
+# ========== СЛУЖЕБНЫЕ ОПЕРАЦИИ ==========
+
+@router.post("/cut", response_model=StatusResponse)
+async def cut_paper(redis: RedisClient = Depends(get_redis_client)):
+    """
+    Отрезать чековую ленту.
+
+    Используется для отрезания чека после завершения печати.
+    """
+    return redis.execute_command('cut_paper')
+
+
+@router.post("/open-drawer", response_model=StatusResponse)
+async def open_cash_drawer(redis: RedisClient = Depends(get_redis_client)):
+    """
+    Открыть денежный ящик.
+
+    Подает сигнал на открытие денежного ящика, подключенного к ККТ.
+    """
+    return redis.execute_command('open_cash_drawer')
+
+
 # ========== ЗВУКОВЫЕ СИГНАЛЫ ==========
 
 @router.post("/beep", response_model=StatusResponse)

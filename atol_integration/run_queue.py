@@ -365,21 +365,31 @@ class CommandProcessor:
                 response['success'] = True
                 response['message'] = f"Картинка №{picture_number} напечатана"
 
-            elif command == 'print_x_report':
-                self.fptr.setParam(IFptr.LIBFPTR_PARAM_REPORT_TYPE, IFptr.LIBFPTR_RT_X)
-                self._check_result(self.fptr.report(), "печати X-отчета")
+            elif command == 'open_nonfiscal_document':
+                self._check_result(self.fptr.beginNonfiscalDocument(), "открытия нефискального документа")
                 response['success'] = True
-                response['message'] = "X-отчет напечатан"
+                response['message'] = "Нефискальный документ открыт"
+
+            elif command == 'close_nonfiscal_document':
+                self._check_result(self.fptr.endNonfiscalDocument(), "закрытия нефискального документа")
+                response['success'] = True
+                response['message'] = "Нефискальный документ закрыт"
+
+            elif command == 'cut_paper':
+                self._check_result(self.fptr.cut(), "отрезания чека")
+                response['success'] = True
+                response['message'] = "Чек отрезан"
 
             elif command == 'open_cash_drawer':
                 self._check_result(self.fptr.openCashDrawer(), "открытия денежного ящика")
                 response['success'] = True
                 response['message'] = "Денежный ящик открыт"
 
-            elif command == 'cut_paper':
-                self._check_result(self.fptr.cut(), "отрезания чека")
+            elif command == 'print_x_report':
+                self.fptr.setParam(IFptr.LIBFPTR_PARAM_REPORT_TYPE, IFptr.LIBFPTR_RT_X)
+                self._check_result(self.fptr.report(), "печати X-отчета")
                 response['success'] = True
-                response['message'] = "Чек отрезан"
+                response['message'] = "X-отчет напечатан"
 
             # ======================================================================
             # Query Commands (All of them)
