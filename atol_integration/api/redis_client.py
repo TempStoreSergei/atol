@@ -94,10 +94,26 @@ class RedisClient:
             kwargs: Параметры команды
             timeout: Таймаут ожидания ответа в секундах
         """
-        if not self.redis_conn or not self.listener_thread or not self.listener_thread.is_alive():
+        # Детальная проверка состояния
+        if not self.redis_conn:
+            logger.error("Redis connection is not initialized")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Redis connection or listener thread is not available."
+                detail="Redis connection is not initialized."
+            )
+
+        if not self.listener_thread:
+            logger.error("Listener thread is not initialized")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Redis listener thread is not initialized."
+            )
+
+        if not self.listener_thread.is_alive():
+            logger.error("Listener thread is not alive")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Redis listener thread is not running."
             )
 
         # Получаем каналы для конкретного устройства
