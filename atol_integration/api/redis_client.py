@@ -66,6 +66,11 @@ class RedisClient:
     def _start_listener(self):
         """Запускает фоновый поток для прослушивания ответов от всех устройств."""
         self.pubsub = self.redis_conn.pubsub(ignore_subscribe_messages=True)
+
+        # ВАЖНО: Подписываемся на dummy канал, чтобы pubsub.listen() не завершился сразу
+        # Реальные каналы будут добавлены динамически при первом запросе
+        self.pubsub.subscribe("__redis_client_keepalive__")
+
         self.listener_thread = threading.Thread(target=self._listen_for_responses, daemon=True)
         self.listener_thread.start()
 
