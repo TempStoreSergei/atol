@@ -57,7 +57,9 @@ class RedisClient:
                 "response": f"command_fr_{device_id}_response"
             }
             # Подписываемся на канал ответов для нового устройства
-            self.pubsub.subscribe(self.device_channels[device_id]["response"])
+            with self._lock:
+                self.pubsub.subscribe(self.device_channels[device_id]["response"])
+                time.sleep(0.01)  # Небольшая пауза для обработки подписки
             logger.info(f"Subscribed to response channel for device '{device_id}': {self.device_channels[device_id]['response']}")
         return self.device_channels[device_id]
 
@@ -71,14 +73,16 @@ class RedisClient:
     def _listen_for_responses(self):
         """Цикл, который слушает канал ответов и сохраняет их."""
         for message in self.pubsub.listen():
-            try:
-                response_data = json.loads(message['data'])
-                command_id = response_data.get("command_id")
-                if command_id:
-                    with self.response_lock:
-                        self.responses[command_id] = response_data
-            except (json.JSONDecodeError, TypeError) as e:
-                logger.error(f"Could not parse response from Redis: {message.get('data')}, error: {e}")
+            if message['type'] == 'message':
+                try:
+                    response_data = json.loads(message['data'])
+                    command_id = response_data.get("command_id")
+                    if command_id:
+                        with self.response_lock:
+                            self.responses[command_id] = response_data
+                        logger.debug(f"Response received for command_id={command_id}")
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.error(f"Could not parse response from Redis: {message.get('data')}, error: {e}")
 
     def execute_command(self, command: str, device_id: str = "default", kwargs: dict = None, timeout: int = 10):
         """
@@ -110,7 +114,7 @@ class RedisClient:
 
         try:
             self.redis_conn.publish(command_channel, json.dumps(command_data, ensure_ascii=False))
-            logger.debug(f"Published command '{command}' ({command_id}) to device '{device_id}' on channel '{command_channel}'")
+            logger.info(f"Published command '{command}' ({command_id}) to device '{device_id}' on channel '{command_channel}'")
         except redis.exceptions.ConnectionError as e:
             logger.error(f"Redis connection error during PUBLISH: {e}")
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Redis PUBLISH failed.")
