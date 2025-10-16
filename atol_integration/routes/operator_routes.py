@@ -2,7 +2,7 @@
 REST API endpoint'ы для операций с кассирами и документами
 """
 from typing import Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from ..api.redis_client import RedisClient, get_redis_client
@@ -31,6 +31,7 @@ class StatusResponse(BaseModel):
 @router.post("/login", response_model=StatusResponse)
 async def operator_login(
     request: OperatorLoginRequest,
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
     """
@@ -67,13 +68,16 @@ async def operator_login(
     POST /shift/close
     ```
     """
-    return redis.execute_command('operator_login', request.model_dump(exclude_none=True))
+    return redis.execute_command('operator_login', device_id=device_id, kwargs=request.model_dump(exclude_none=True))
 
 
 # ========== ОПЕРАЦИИ С ДОКУМЕНТАМИ ==========
 
 @router.post("/continue-print", response_model=StatusResponse)
-async def continue_print(redis: RedisClient = Depends(get_redis_client)):
+async def continue_print(
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
+    redis: RedisClient = Depends(get_redis_client)
+):
     """
     Допечатать документ (continuePrint).
 
@@ -104,11 +108,14 @@ async def continue_print(redis: RedisClient = Depends(get_redis_client)):
     POST /operator/continue-print
     ```
     """
-    return redis.execute_command('continue_print')
+    return redis.execute_command('continue_print', device_id=device_id)
 
 
 @router.post("/check-document-closed", response_model=StatusResponse)
-async def check_document_closed(redis: RedisClient = Depends(get_redis_client)):
+async def check_document_closed(
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
+    redis: RedisClient = Depends(get_redis_client)
+):
     """
     Проверить закрытие документа (checkDocumentClosed).
 
@@ -165,4 +172,4 @@ async def check_document_closed(redis: RedisClient = Depends(get_redis_client)):
     }
     ```
     """
-    return redis.execute_command('check_document_closed')
+    return redis.execute_command('check_document_closed', device_id=device_id)

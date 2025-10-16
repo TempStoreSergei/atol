@@ -2,7 +2,7 @@
 REST API endpoint'ы для настройки драйвера и логирования
 """
 from typing import Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from ..api.redis_client import RedisClient, get_redis_client
@@ -44,6 +44,7 @@ class StatusResponse(BaseModel):
 @router.post("/logging", response_model=StatusResponse)
 async def configure_logging(
     request: LoggingConfigRequest,
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
     """
@@ -95,12 +96,13 @@ async def configure_logging(
     **Внимание:** Не рекомендуется включать DEBUG для низкоуровневых категорий
     (USB, COM, TCP, Bluetooth) без особой необходимости - это может замедлить работу!
     """
-    return redis.execute_command('configure_logging', request.model_dump(exclude_none=True))
+    return redis.execute_command('configure_logging', device_id=device_id, kwargs=request.model_dump(exclude_none=True))
 
 
 @router.post("/label", response_model=StatusResponse)
 async def change_driver_label(
     request: ChangeLabelRequest,
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
     """
@@ -132,11 +134,14 @@ async def change_driver_label(
     ```
     Где `%L` будет заменен на метку.
     """
-    return redis.execute_command('change_driver_label', request.model_dump())
+    return redis.execute_command('change_driver_label', device_id=device_id, kwargs=request.model_dump())
 
 
 @router.get("/logging/defaults", response_model=StatusResponse)
-async def get_default_logging_config(redis: RedisClient = Depends(get_redis_client)):
+async def get_default_logging_config(
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
+    redis: RedisClient = Depends(get_redis_client)
+):
     """
     Получить настройки логирования по умолчанию.
 
@@ -149,4 +154,4 @@ async def get_default_logging_config(redis: RedisClient = Depends(get_redis_clie
 
     Логи хранятся 14 дней с автоматической ротацией.
     """
-    return redis.execute_command('get_default_logging_config')
+    return redis.execute_command('get_default_logging_config', device_id=device_id)

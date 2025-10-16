@@ -1,8 +1,8 @@
-"""
+Gl;"""
 REST API endpoint'ы для операций с чеками (receipts)
 """
 from typing import Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from ..api.redis_client import RedisClient, get_redis_client
@@ -56,48 +56,57 @@ class StatusResponse(BaseModel):
 @router.post("/open")
 async def open_receipt(
     request: OpenReceiptRequest,
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
     """
     Открыть новый чек.
     """
-    return redis.execute_command('receipt_open', request.model_dump())
+    return redis.execute_command('receipt_open', device_id=device_id, kwargs=request.model_dump())
 
 
 @router.post("/add-item")
 async def add_item(
     request: AddItemRequest,
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
     """
     Добавить позицию в открытый чек.
     """
-    return redis.execute_command('receipt_add_item', request.model_dump())
+    return redis.execute_command('receipt_add_item', device_id=device_id, kwargs=request.model_dump())
 
 
 @router.post("/add-payment")
 async def add_payment(
     request: AddPaymentRequest,
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
     """
     Добавить оплату в открытый чек.
     """
-    return redis.execute_command('receipt_add_payment', request.model_dump())
+    return redis.execute_command('receipt_add_payment', device_id=device_id, kwargs=request.model_dump())
 
 
 @router.post("/close", response_model=CloseReceiptResponse)
-async def close_receipt(redis: RedisClient = Depends(get_redis_client)):
+async def close_receipt(
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
+    redis: RedisClient = Depends(get_redis_client)
+):
     """
     Закрыть чек и напечатать.
     """
-    return redis.execute_command('receipt_close')
+    return redis.execute_command('receipt_close', device_id=device_id)
 
 
 @router.post("/cancel")
-async def cancel_receipt(redis: RedisClient = Depends(get_redis_client)):
+async def cancel_receipt(
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
+    redis: RedisClient = Depends(get_redis_client)
+):
     """
     Отменить открытый чек.
     """
-    return redis.execute_command('receipt_cancel')
+    return redis.execute_command('receipt_cancel', device_id=device_id)
 

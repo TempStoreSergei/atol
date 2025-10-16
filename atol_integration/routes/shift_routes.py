@@ -2,7 +2,7 @@
 REST API endpoint'ы для операций со сменами (shifts)
 """
 from typing import Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from ..api.redis_client import RedisClient, get_redis_client
@@ -60,40 +60,46 @@ class StatusResponse(BaseModel):
 @router.post("/open")
 async def open_shift(
     request: OpenShiftRequest,
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
     """
     Открыть новую смену.
     """
-    return redis.execute_command('shift_open', {'cashier_name': request.cashier_name})
+    return redis.execute_command('shift_open', device_id=device_id, kwargs={'cashier_name': request.cashier_name})
 
 
 @router.post("/close", response_model=CloseShiftResponse)
 async def close_shift(
     cashier_name: str,
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
     """
     Закрыть текущую смену (Z-отчет).
     """
-    return redis.execute_command('shift_close', {'cashier_name': cashier_name})
+    return redis.execute_command('shift_close', device_id=device_id, kwargs={'cashier_name': cashier_name})
 
 
 @router.get("/status", response_model=ShiftStatusResponse)
-async def get_shift_status(redis: RedisClient = Depends(get_redis_client)):
+async def get_shift_status(
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
+    redis: RedisClient = Depends(get_redis_client)
+):
     """
     Получить статус текущей смены.
     """
-    return redis.execute_command('shift_get_status')
+    return redis.execute_command('shift_get_status', device_id=device_id)
 
 
 @router.post("/x-report", response_model=XReportResponse)
 async def print_x_report(
     cashier_name: str,
+    device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
     """
     Напечатать X-отчет (отчет без гашения).
     """
-    return redis.execute_command('shift_print_x_report', {'cashier_name': cashier_name})
+    return redis.execute_command('shift_print_x_report', device_id=device_id, kwargs={'cashier_name': cashier_name})
 

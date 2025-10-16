@@ -720,35 +720,107 @@ class CommandProcessor:
 
         return response
 
-def listen_to_redis():
-    """Подключение к Redis и обработка команд"""
-    r = redis.Redis(host=settings.redis_host, port=settings.redis_port, decode_responses=True)
-    pubsub = r.pubsub()
-    channel = 'command_fr_channel'
-    response_channel = f'{channel}_response'
-    pubsub.subscribe(channel)
+class DeviceWorker:
+    """Воркер для конкретного фискального регистратора"""
 
-    # Создаем единственный экземпляр процессора команд
-    processor = CommandProcessor()
-    logger.info(f"✓ Процессор команд инициализирован")
-    logger.info(f"🎧 Ожидание команд в канале '{channel}'...")
+    def __init__(self, device_id: str, device_config: dict):
+        """
+        Инициализация воркера для устройства
 
-    for message in pubsub.listen():
+        Args:
+            device_id: Идентификатор устройства
+            device_config: Конфигурация устройства
+        """
+        self.device_id = device_id
+        self.device_config = device_config
+        self.processor = CommandProcessor()
+        self.command_channel = f"command_fr_{device_id}"
+        self.response_channel = f"command_fr_{device_id}_response"
+
+        logger.info(f"✓ Воркер для устройства '{device_id}' инициализирован")
+        logger.info(f"  - Канал команд: {self.command_channel}")
+        logger.info(f"  - Канал ответов: {self.response_channel}")
+
+    def process_message(self, r: redis.Redis, message: dict):
+        """Обработка сообщения из канала"""
         if message.get('type') == 'message':
             if message.get('data') == 'ping':
-                continue
+                return
+
             try:
                 command_data = json.loads(message.get('data'))
-                logger.debug(f"Получена команда: {command_data}")
-                response = processor.process_command(command_data)
-                r.publish(response_channel, json.dumps(response, ensure_ascii=False))
-                logger.debug(f"Ответ отправлен в канал '{response_channel}': {response}")
+                logger.debug(f"[{self.device_id}] Получена команда: {command_data}")
+
+                response = self.processor.process_command(command_data)
+                r.publish(self.response_channel, json.dumps(response, ensure_ascii=False))
+                logger.debug(f"[{self.device_id}] Ответ отправлен: {response}")
+
             except json.JSONDecodeError as e:
-                logger.error(f"Ошибка парсинга команды: {e}")
+                logger.error(f"[{self.device_id}] Ошибка парсинга команды: {e}")
             except Exception as e:
-                logger.error(f"Неожиданная ошибка: {e}")
+                logger.error(f"[{self.device_id}] Неожиданная ошибка: {e}")
+
+
+def get_device_configs() -> Dict[str, dict]:
+    """
+    Получить конфигурации всех устройств из переменных окружения
+
+    Формат переменных:
+    DEVICES=device1,device2,device3
+    DEVICE_device1_TYPE=tcp
+    DEVICE_device1_HOST=192.168.1.100
+    DEVICE_device1_PORT=5555
+    """
+    import os
+
+    devices = {}
+    devices_list = os.getenv('DEVICES', 'default').split(',')
+
+    for device_id in devices_list:
+        device_id = device_id.strip()
+        prefix = f"DEVICE_{device_id}_"
+
+        # Получаем конфигурацию устройства из переменных окружения
+        device_config = {
+            'connection_type': os.getenv(f"{prefix}TYPE", settings.atol_connection_type),
+            'host': os.getenv(f"{prefix}HOST", settings.atol_host),
+            'port': int(os.getenv(f"{prefix}PORT", settings.atol_port)),
+        }
+
+        devices[device_id] = device_config
+        logger.info(f"Загружена конфигурация для устройства '{device_id}': {device_config}")
+
+    return devices
+
+
+def listen_to_redis():
+    """Подключение к Redis и обработка команд от всех устройств"""
+    r = redis.Redis(host=settings.redis_host, port=settings.redis_port, decode_responses=True)
+    pubsub = r.pubsub()
+
+    # Загружаем конфигурацию устройств
+    device_configs = get_device_configs()
+
+    # Создаем воркеров для каждого устройства
+    workers = {}
+    for device_id, device_config in device_configs.items():
+        worker = DeviceWorker(device_id, device_config)
+        workers[device_id] = worker
+        pubsub.subscribe(worker.command_channel)
+
+    logger.info(f"🎧 Ожидание команд от {len(workers)} устройств...")
+
+    # Обрабатываем сообщения из всех каналов
+    for message in pubsub.listen():
+        # Определяем, какому устройству предназначено сообщение
+        channel = message.get('channel')
+        if channel:
+            for device_id, worker in workers.items():
+                if channel == worker.command_channel:
+                    worker.process_message(r, message)
+                    break
 
 
 if __name__ == "__main__":
-    logger.info("🚀 Запуск Redis Queue Worker для АТОЛ ККТ")
+    logger.info("🚀 Запуск Multi-Device Redis Queue Worker для АТОЛ ККТ")
     listen_to_redis()
