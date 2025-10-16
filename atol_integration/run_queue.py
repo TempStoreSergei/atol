@@ -733,13 +733,20 @@ class DeviceWorker:
         """
         self.device_id = device_id
         self.device_config = device_config
-        self.processor = CommandProcessor()
+        self.processor = None  # Будет создан при первом использовании
         self.command_channel = f"command_fr_{device_id}"
         self.response_channel = f"command_fr_{device_id}_response"
 
         logger.info(f"✓ Воркер для устройства '{device_id}' инициализирован")
         logger.info(f"  - Канал команд: {self.command_channel}")
         logger.info(f"  - Канал ответов: {self.response_channel}")
+
+    def _get_processor(self):
+        """Получить или создать процессор команд (lazy initialization)"""
+        if self.processor is None:
+            self.processor = CommandProcessor()
+            logger.info(f"[{self.device_id}] Создан процессор команд")
+        return self.processor
 
     def process_message(self, r: redis.Redis, message: dict):
         """Обработка сообщения из канала"""
@@ -751,7 +758,9 @@ class DeviceWorker:
                 command_data = json.loads(message.get('data'))
                 logger.debug(f"[{self.device_id}] Получена команда: {command_data}")
 
-                response = self.processor.process_command(command_data)
+                # Используем lazy initialization для процессора
+                processor = self._get_processor()
+                response = processor.process_command(command_data)
                 r.publish(self.response_channel, json.dumps(response, ensure_ascii=False))
                 logger.debug(f"[{self.device_id}] Ответ отправлен: {response}")
 
