@@ -68,21 +68,35 @@ class RedisClient:
         self.pubsub = self.redis_conn.pubsub(ignore_subscribe_messages=True)
         self.listener_thread = threading.Thread(target=self._listen_for_responses, daemon=True)
         self.listener_thread.start()
-        logger.info(f"Redis listener started for multiple devices")
+
+        # Даём потоку время запуститься
+        time.sleep(0.1)
+
+        if self.listener_thread.is_alive():
+            logger.info(f"Redis listener started for multiple devices")
+        else:
+            logger.error("Redis listener failed to start!")
+            raise Exception("Failed to start Redis listener thread")
 
     def _listen_for_responses(self):
         """Цикл, который слушает канал ответов и сохраняет их."""
-        for message in self.pubsub.listen():
-            if message['type'] == 'message':
-                try:
-                    response_data = json.loads(message['data'])
-                    command_id = response_data.get("command_id")
-                    if command_id:
-                        with self.response_lock:
-                            self.responses[command_id] = response_data
-                        logger.debug(f"Response received for command_id={command_id}")
-                except (json.JSONDecodeError, TypeError) as e:
-                    logger.error(f"Could not parse response from Redis: {message.get('data')}, error: {e}")
+        try:
+            logger.info("Listener thread started, waiting for messages...")
+            for message in self.pubsub.listen():
+                if message['type'] == 'message':
+                    try:
+                        response_data = json.loads(message['data'])
+                        command_id = response_data.get("command_id")
+                        if command_id:
+                            with self.response_lock:
+                                self.responses[command_id] = response_data
+                            logger.debug(f"Response received for command_id={command_id}")
+                    except (json.JSONDecodeError, TypeError) as e:
+                        logger.error(f"Could not parse response from Redis: {message.get('data')}, error: {e}")
+        except Exception as e:
+            logger.error(f"Listener thread crashed: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
 
     def execute_command(self, command: str, device_id: str = "default", kwargs: dict = None, timeout: int = 10):
         """
