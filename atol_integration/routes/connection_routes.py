@@ -5,7 +5,8 @@ from typing import Optional, Dict, Any
 from fastapi import Depends, Query, status
 from pydantic import BaseModel, Field
 
-from ..api.redis_client import RedisClient, get_redis_client
+from ..api.dependencies import get_redis, pubsub_command_util
+from redis.asyncio import Redis
 from ..api.routing import RouteDTO, RouterFactory
 
 
@@ -47,26 +48,26 @@ class DeviceInfoResponse(BaseModel):
 async def open_connection(
     request: OpenConnectionRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Открыть логическое соединение с ККТ"""
-    return redis.execute_command('connection_open', device_id=device_id, kwargs={'settings': request.settings})
+    return await pubsub_command_util(redis, device_id=device_id, command='connection_open', kwargs={'settings': request.settings})
 
 
 async def close_connection(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Закрыть логическое соединение с ККТ"""
-    return redis.execute_command('connection_close', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='connection_close')
 
 
 async def is_connection_opened(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Проверить состояние логического соединения"""
-    return redis.execute_command('connection_is_opened', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='connection_is_opened')
 
 
 # ========== ОПИСАНИЕ МАРШРУТОВ ==========

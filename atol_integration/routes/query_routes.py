@@ -5,7 +5,8 @@ from typing import Optional
 from fastapi import Depends, Query, status
 from pydantic import BaseModel
 
-from ..api.redis_client import RedisClient, get_redis_client
+from ..api.dependencies import get_redis, pubsub_command_util
+from redis.asyncio import Redis
 from ..api.libfptr10 import IFptr
 from ..api.routing import RouteDTO, RouterFactory
 
@@ -134,7 +135,7 @@ class WiFiInfoResponse(BaseModel):
 
 async def get_status(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Запрос полной информации и статуса ККТ.
@@ -142,91 +143,91 @@ async def get_status(
     Возвращает: модель, серийный номер, состояние смены, крышка, наличие бумаги,
     заводской номер, версию ПО, оператор, фискальные флаги и многое другое.
     """
-    return redis.execute_command('get_status', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_status', kwargs={})
 
 
 async def get_short_status(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Короткий запрос статуса ККТ.
 
     Возвращает только: денежный ящик открыт, наличие бумаги, бумага заканчивается, крышка открыта.
     """
-    return redis.execute_command('get_short_status', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_short_status', kwargs={})
 
 
 async def get_cash_sum(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Запрос суммы наличных в денежном ящике."""
-    return redis.execute_command('get_cash_sum', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_cash_sum', kwargs={})
 
 
 async def get_shift_state(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Запрос состояния смены.
 
     Возвращает: состояние смены (закрыта/открыта/истекла), номер смены, дата и время истечения.
     """
-    return redis.execute_command('get_shift_state', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_shift_state', kwargs={})
 
 
 async def get_receipt_state(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Запрос состояния чека.
 
     Возвращает: тип чека, сумму чека, номер чека, номер документа, неоплаченный остаток, сдачу.
     """
-    return redis.execute_command('get_receipt_state', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_receipt_state', kwargs={})
 
 
 async def get_datetime(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Запрос текущих даты и времени в ККТ."""
-    return redis.execute_command('get_datetime', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_datetime', kwargs={})
 
 
 async def get_serial_number(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Запрос заводского номера ККТ."""
-    return redis.execute_command('get_serial_number', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_serial_number', kwargs={})
 
 
 async def get_model_info(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Запрос информации о модели ККТ.
 
     Возвращает: номер модели, название модели, версию ПО.
     """
-    return redis.execute_command('get_model_info', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_model_info', kwargs={})
 
 
 async def get_receipt_line_length(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Запрос ширины чековой ленты.
 
     Возвращает ширину в символах и пикселях.
     """
-    return redis.execute_command('get_receipt_line_length', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_receipt_line_length', kwargs={})
 
 
 async def get_unit_version(
@@ -238,7 +239,7 @@ async def get_unit_version(
         )
     ),
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Запрос версии модуля ККТ.
@@ -250,14 +251,14 @@ async def get_unit_version(
     - 3 (LIBFPTR_UT_CONTROL_UNIT): Блок управления
     - 4 (LIBFPTR_UT_BOOT): Загрузчик
     """
-    return redis.execute_command('get_unit_version', device_id=device_id, kwargs={'unit_type': unit_type})
+    return await pubsub_command_util(redis, device_id=device_id, command='get_unit_version', kwargs={'unit_type': unit_type})
 
 
 async def get_payment_sum(
     payment_type: int = Query(..., description="Тип оплаты: 0=наличные, 1=безнал, 2=аванс, 3=кредит, 4=иное"),
     receipt_type: int = Query(..., description="Тип чека: 0=продажа, 1=возврат, 2=покупка, 3=возврат покупки"),
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Запрос суммы платежей за смену по типу оплаты и типу чека.
@@ -275,7 +276,7 @@ async def get_payment_sum(
     - 2 = покупка (BUY)
     - 3 = возврат покупки (BUY_RETURN)
     """
-    return redis.execute_command('get_payment_sum', device_id=device_id, kwargs={
+    return await pubsub_command_util(redis, device_id=device_id, command='get_payment_sum', kwargs={
         'payment_type': payment_type,
         'receipt_type': receipt_type
     })
@@ -283,24 +284,24 @@ async def get_payment_sum(
 
 async def get_cashin_sum(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Запрос суммы внесений за смену."""
-    return redis.execute_command('get_cashin_sum', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_cashin_sum', kwargs={})
 
 
 async def get_cashout_sum(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Запрос суммы выплат за смену."""
-    return redis.execute_command('get_cashout_sum', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_cashout_sum', kwargs={})
 
 
 async def get_receipt_count(
     receipt_type: int = Query(..., description="Тип чека: 0=продажа, 1=возврат, 2=покупка, 3=возврат покупки"),
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Запрос количества чеков за смену по типу.
@@ -313,20 +314,20 @@ async def get_receipt_count(
     - 4 = коррекция продажи (SELL_CORRECTION)
     - 5 = коррекция покупки (BUY_CORRECTION)
     """
-    return redis.execute_command('get_receipt_count', device_id=device_id, kwargs={'receipt_type': receipt_type})
+    return await pubsub_command_util(redis, device_id=device_id, command='get_receipt_count', kwargs={'receipt_type': receipt_type})
 
 
 async def get_non_nullable_sum(
     receipt_type: int = Query(..., description="Тип чека: 0=продажа, 1=возврат, 2=покупка, 3=возврат покупки"),
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Запрос необнуляемой суммы по типу чека.
 
     Необнуляемая сумма - это накопительный итог с момента фискализации ККТ.
     """
-    return redis.execute_command('get_non_nullable_sum', device_id=device_id, kwargs={'receipt_type': receipt_type})
+    return await pubsub_command_util(redis, device_id=device_id, command='get_non_nullable_sum', kwargs={'receipt_type': receipt_type})
 
 
 async def get_power_source_state(
@@ -335,7 +336,7 @@ async def get_power_source_state(
         description="Тип источника: 0=блок питания, 1=батарея часов, 2=аккумуляторы"
     ),
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Запрос состояния источника питания.
@@ -348,24 +349,24 @@ async def get_power_source_state(
     Возвращает: заряд аккумулятора (%), напряжение (В), работа от аккумулятора,
     идет зарядка, может ли печатать при текущем заряде.
     """
-    return redis.execute_command('get_power_source_state', device_id=device_id, kwargs={'power_source_type': power_source_type})
+    return await pubsub_command_util(redis, device_id=device_id, command='get_power_source_state', kwargs={'power_source_type': power_source_type})
 
 
 async def get_printer_temperature(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Запрос температуры термопечатающей головки (ТПГ).
 
     Возвращает температуру в градусах Цельсия.
     """
-    return redis.execute_command('get_printer_temperature', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_printer_temperature', kwargs={})
 
 
 async def get_fatal_status(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Запрос фатальных ошибок ККТ.
@@ -387,20 +388,20 @@ async def get_fatal_status(
     - Ошибка универсальных счётчиков
     - Ошибка таблицы товаров
     """
-    return redis.execute_command('get_fatal_status', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_fatal_status', kwargs={})
 
 
 async def get_mac_address(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Запрос MAC-адреса Ethernet."""
-    return redis.execute_command('get_mac_address', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_mac_address', kwargs={})
 
 
 async def get_ethernet_info(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Запрос текущей конфигурации Ethernet.
@@ -409,12 +410,12 @@ async def get_ethernet_info(
 
     Поддерживается только для ККТ версий 5.X.
     """
-    return redis.execute_command('get_ethernet_info', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_ethernet_info', kwargs={})
 
 
 async def get_wifi_info(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Запрос текущей конфигурации Wi-Fi.
@@ -423,7 +424,7 @@ async def get_wifi_info(
 
     Поддерживается только для ККТ версий 5.X.
     """
-    return redis.execute_command('get_wifi_info', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_wifi_info', kwargs={})
 
 
 # ========== ОПИСАНИЕ МАРШРУТОВ ==========

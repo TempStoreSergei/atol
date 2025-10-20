@@ -5,7 +5,8 @@ from typing import Optional
 from fastapi import Depends, Query, status
 from pydantic import BaseModel, Field
 
-from ..api.redis_client import RedisClient, get_redis_client
+from ..api.dependencies import get_redis, pubsub_command_util
+from redis.asyncio import Redis
 from ..api.routing import RouteDTO, RouterFactory
 
 
@@ -42,27 +43,27 @@ class StatusResponse(BaseModel):
 async def configure_logging(
     request: LoggingConfigRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Настроить логирование драйвера АТОЛ"""
-    return redis.execute_command('configure_logging', device_id=device_id, kwargs=request.model_dump(exclude_none=True))
+    return await pubsub_command_util(redis, device_id=device_id, command='configure_logging', kwargs=request.model_dump(exclude_none=True))
 
 
 async def change_driver_label(
     request: ChangeLabelRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Изменить метку драйвера для логирования"""
-    return redis.execute_command('change_driver_label', device_id=device_id, kwargs=request.model_dump())
+    return await pubsub_command_util(redis, device_id=device_id, command='change_driver_label', kwargs=request.model_dump())
 
 
 async def get_default_logging_config(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Получить настройки логирования по умолчанию"""
-    return redis.execute_command('get_default_logging_config', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='get_default_logging_config')
 
 
 # ========== ОПИСАНИЕ МАРШРУТОВ ==========

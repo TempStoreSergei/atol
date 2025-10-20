@@ -5,7 +5,8 @@ from typing import Optional
 from fastapi import Depends, Query, status
 from pydantic import BaseModel, Field
 
-from ..api.redis_client import RedisClient, get_redis_client
+from ..api.dependencies import get_redis, pubsub_command_util
+from redis.asyncio import Redis
 from ..api.routing import RouteDTO, RouterFactory
 
 
@@ -45,43 +46,43 @@ class StatusResponse(BaseModel):
 async def cash_in(
     request: CashOperationRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Внесение наличных в кассу"""
-    return redis.execute_command('cash_in', device_id=device_id, kwargs=request.model_dump())
+    return await pubsub_command_util(redis, device_id=device_id, command='cash_in', kwargs=request.model_dump())
 
 
 async def cash_out(
     request: CashOperationRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Изъятие наличных из кассы"""
-    return redis.execute_command('cash_out', device_id=device_id, kwargs=request.model_dump())
+    return await pubsub_command_util(redis, device_id=device_id, command='cash_out', kwargs=request.model_dump())
 
 
 async def get_cash_sum(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Получить сумму наличных в денежном ящике"""
-    return redis.execute_command('query_data', device_id=device_id, kwargs={'data_type': 3})  # LIBFPTR_DT_CASH_SUM = 3
+    return await pubsub_command_util(redis, device_id=device_id, command='query_data', kwargs={'data_type': 3})  # LIBFPTR_DT_CASH_SUM = 3
 
 
 async def open_cash_drawer(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Открыть денежный ящик"""
-    return redis.execute_command('cash_drawer_open', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='cash_drawer_open')
 
 
 async def get_cash_drawer_status(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Проверить состояние денежного ящика"""
-    return redis.execute_command('query_data', device_id=device_id, kwargs={'data_type': 1})  # LIBFPTR_DT_STATUS = 1
+    return await pubsub_command_util(redis, device_id=device_id, command='query_data', kwargs={'data_type': 1})  # LIBFPTR_DT_STATUS = 1
 
 
 # ========== ОПИСАНИЕ МАРШРУТОВ ==========

@@ -5,7 +5,8 @@ from typing import Optional
 from fastapi import Depends, Query, status
 from pydantic import BaseModel, Field
 
-from ..api.redis_client import RedisClient, get_redis_client
+from ..api.dependencies import get_redis, pubsub_command_util
+from redis.asyncio import Redis
 from ..api.routing import RouteDTO, RouterFactory
 
 
@@ -86,7 +87,7 @@ class StatusResponse(BaseModel):
 async def print_text(
     request: PrintTextRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Напечатать строку текста с форматированием.
@@ -114,26 +115,26 @@ async def print_text(
     {"text": "Очень длинная строка которая не поместится", "wrap": 1}
     ```
     """
-    return redis.execute_command('print_text', device_id=device_id, kwargs=request.model_dump(exclude_none=True))
+    return await pubsub_command_util(redis, device_id=device_id, command='print_text', kwargs=request.model_dump(exclude_none=True))
 
 
 async def feed_line(
     request: PrintFeedRequest = PrintFeedRequest(),
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Промотать чековую ленту на N пустых строк.
 
     **Внимание:** Не рекомендуется печатать вне открытых документов!
     """
-    return redis.execute_command('print_feed', device_id=device_id, kwargs=request.model_dump())
+    return await pubsub_command_util(redis, device_id=device_id, command='print_feed', kwargs=request.model_dump())
 
 
 async def print_barcode(
     request: PrintBarcodeRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Напечатать штрихкод.
@@ -176,13 +177,13 @@ async def print_barcode(
     {"barcode": "[01]98898765432106[3202]012345[15]991231", "barcode_type": 10}
     ```
     """
-    return redis.execute_command('print_barcode', device_id=device_id, kwargs=request.model_dump(exclude_none=True))
+    return await pubsub_command_util(redis, device_id=device_id, command='print_barcode', kwargs=request.model_dump(exclude_none=True))
 
 
 async def print_picture(
     request: PrintPictureRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Напечатать картинку из файла.
@@ -200,13 +201,13 @@ async def print_picture(
 
     **Внимание:** Не рекомендуется печатать вне открытых документов!
     """
-    return redis.execute_command('print_picture', device_id=device_id, kwargs=request.model_dump(exclude_none=True))
+    return await pubsub_command_util(redis, device_id=device_id, command='print_picture', kwargs=request.model_dump(exclude_none=True))
 
 
 async def print_picture_by_number(
     request: PrintPictureByNumberRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Напечатать картинку из памяти ККТ.
@@ -225,12 +226,12 @@ async def print_picture_by_number(
 
     **Внимание:** Не рекомендуется печатать вне открытых документов!
     """
-    return redis.execute_command('print_picture_by_number', device_id=device_id, kwargs=request.model_dump(exclude_none=True))
+    return await pubsub_command_util(redis, device_id=device_id, command='print_picture_by_number', kwargs=request.model_dump(exclude_none=True))
 
 
 async def open_nonfiscal_document(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Открыть нефискальный документ.
@@ -245,49 +246,49 @@ async def open_nonfiscal_document(
     2. Печатать текст, штрихкоды, картинки (`/text`, `/barcode`, `/picture`)
     3. Закрыть документ (`/document/close`)
     """
-    return redis.execute_command('open_nonfiscal_document', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='open_nonfiscal_document')
 
 
 async def close_nonfiscal_document(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Закрыть нефискальный документ.
 
     Завершает печать нефискального документа и отрезает чек.
     """
-    return redis.execute_command('close_nonfiscal_document', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='close_nonfiscal_document')
 
 
 async def cut_paper(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Отрезать чековую ленту.
 
     Используется для отрезания чека после завершения печати.
     """
-    return redis.execute_command('cut_paper', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='cut_paper')
 
 
 async def open_cash_drawer(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Открыть денежный ящик.
 
     Подает сигнал на открытие денежного ящика, подключенного к ККТ.
     """
-    return redis.execute_command('open_cash_drawer', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='open_cash_drawer')
 
 
 async def beep(
     request: BeepRequest = BeepRequest(),
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Подать звуковой сигнал через динамик ККТ.
@@ -306,12 +307,12 @@ async def beep(
     - 494 Гц - Си (B4)
     - 523 Гц - До (C5)
     """
-    return redis.execute_command('beep', device_id=device_id, kwargs=request.model_dump())
+    return await pubsub_command_util(redis, device_id=device_id, command='beep', kwargs=request.model_dump())
 
 
 async def play_arcane_melody(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """
     Сыграть мелодию "Enemy" из сериала Arcane через динамик ККТ!
@@ -325,7 +326,7 @@ async def play_arcane_melody(
     выполнять другие операции.
     """
     # Увеличиваем таймаут до 30 секунд, так как мелодия играет ~15 секунд
-    return redis.execute_command('play_arcane_melody', device_id=device_id, timeout=30)
+    return await pubsub_command_util(redis, device_id=device_id, command='play_arcane_melody', timeout=30)
 
 
 # ========== ОПИСАНИЕ МАРШРУТОВ ==========

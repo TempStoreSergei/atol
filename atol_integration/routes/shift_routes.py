@@ -5,7 +5,8 @@ from typing import Optional
 from fastapi import Depends, Query, status
 from pydantic import BaseModel, Field
 
-from ..api.redis_client import RedisClient, get_redis_client
+from ..api.dependencies import get_redis, pubsub_command_util
+from redis.asyncio import Redis
 from ..api.routing import RouteDTO, RouterFactory
 
 
@@ -58,36 +59,36 @@ class StatusResponse(BaseModel):
 async def open_shift(
     request: OpenShiftRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Открыть новую смену"""
-    return redis.execute_command('shift_open', device_id=device_id, kwargs={'cashier_name': request.cashier_name})
+    return await pubsub_command_util(redis, device_id=device_id, command='shift_open', kwargs={'cashier_name': request.cashier_name})
 
 
 async def close_shift(
     cashier_name: str,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Закрыть текущую смену (Z-отчет)"""
-    return redis.execute_command('shift_close', device_id=device_id, kwargs={'cashier_name': cashier_name})
+    return await pubsub_command_util(redis, device_id=device_id, command='shift_close', kwargs={'cashier_name': cashier_name})
 
 
 async def get_shift_status(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Получить статус текущей смены"""
-    return redis.execute_command('shift_get_status', device_id=device_id)
+    return await pubsub_command_util(redis, device_id=device_id, command='shift_get_status')
 
 
 async def print_x_report(
     cashier_name: str,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
-    redis: RedisClient = Depends(get_redis_client)
+    redis: Redis = Depends(get_redis)
 ):
     """Напечатать X-отчет (отчет без гашения)"""
-    return redis.execute_command('shift_print_x_report', device_id=device_id, kwargs={'cashier_name': cashier_name})
+    return await pubsub_command_util(redis, device_id=device_id, command='shift_print_x_report', kwargs={'cashier_name': cashier_name})
 
 
 # ========== ОПИСАНИЕ МАРШРУТОВ ==========
