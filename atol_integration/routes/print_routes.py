@@ -2,13 +2,11 @@
 REST API endpoint'ы для нефискальной печати
 """
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import Depends, Query, status
 from pydantic import BaseModel, Field
 
 from ..api.redis_client import RedisClient, get_redis_client
-
-
-router = APIRouter(prefix="/print", tags=["Non-Fiscal Printing"])
+from ..api.routing import RouteDTO, RouterFactory
 
 
 # ========== МОДЕЛИ ДАННЫХ ==========
@@ -24,6 +22,11 @@ class PrintTextRequest(BaseModel):
     linespacing: Optional[int] = Field(None, description="Межстрочный интервал")
     brightness: Optional[int] = Field(None, description="Яркость печати")
     defer: int = Field(0, description="Отложенная печать: 0=нет (LIBFPTR_DEFER_NONE), 1=перед чеком (PRE), 2=после чека (POST), 3=рядом с ШК (OVERLAY)")
+
+
+class PrintFeedRequest(BaseModel):
+    """Запрос на промотку ленты"""
+    lines: int = Field(1, description="Количество пустых строк для промотки", ge=1, le=100)
 
 
 class PrintBarcodeRequest(BaseModel):
@@ -78,9 +81,8 @@ class StatusResponse(BaseModel):
     message: Optional[str] = None
 
 
-# ========== ПЕЧАТЬ ТЕКСТА ==========
+# ========== ФУНКЦИИ ЭНДПОИНТОВ ==========
 
-@router.post("/text", response_model=StatusResponse)
 async def print_text(
     request: PrintTextRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
@@ -115,12 +117,6 @@ async def print_text(
     return redis.execute_command('print_text', device_id=device_id, kwargs=request.model_dump(exclude_none=True))
 
 
-class PrintFeedRequest(BaseModel):
-    """Запрос на промотку ленты"""
-    lines: int = Field(1, description="Количество пустых строк для промотки", ge=1, le=100)
-
-
-@router.post("/feed", response_model=StatusResponse)
 async def feed_line(
     request: PrintFeedRequest = PrintFeedRequest(),
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
@@ -134,9 +130,6 @@ async def feed_line(
     return redis.execute_command('print_feed', device_id=device_id, kwargs=request.model_dump())
 
 
-# ========== ПЕЧАТЬ ШТРИХКОДА ==========
-
-@router.post("/barcode", response_model=StatusResponse)
 async def print_barcode(
     request: PrintBarcodeRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
@@ -186,9 +179,6 @@ async def print_barcode(
     return redis.execute_command('print_barcode', device_id=device_id, kwargs=request.model_dump(exclude_none=True))
 
 
-# ========== ПЕЧАТЬ КАРТИНОК ==========
-
-@router.post("/picture", response_model=StatusResponse)
 async def print_picture(
     request: PrintPictureRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
@@ -213,7 +203,6 @@ async def print_picture(
     return redis.execute_command('print_picture', device_id=device_id, kwargs=request.model_dump(exclude_none=True))
 
 
-@router.post("/picture-by-number", response_model=StatusResponse)
 async def print_picture_by_number(
     request: PrintPictureByNumberRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
@@ -239,9 +228,6 @@ async def print_picture_by_number(
     return redis.execute_command('print_picture_by_number', device_id=device_id, kwargs=request.model_dump(exclude_none=True))
 
 
-# ========== НЕФИСКАЛЬНЫЕ ДОКУМЕНТЫ ==========
-
-@router.post("/document/open", response_model=StatusResponse)
 async def open_nonfiscal_document(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
@@ -262,7 +248,6 @@ async def open_nonfiscal_document(
     return redis.execute_command('open_nonfiscal_document', device_id=device_id)
 
 
-@router.post("/document/close", response_model=StatusResponse)
 async def close_nonfiscal_document(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
@@ -275,9 +260,6 @@ async def close_nonfiscal_document(
     return redis.execute_command('close_nonfiscal_document', device_id=device_id)
 
 
-# ========== СЛУЖЕБНЫЕ ОПЕРАЦИИ ==========
-
-@router.post("/cut", response_model=StatusResponse)
 async def cut_paper(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
@@ -290,7 +272,6 @@ async def cut_paper(
     return redis.execute_command('cut_paper', device_id=device_id)
 
 
-@router.post("/open-drawer", response_model=StatusResponse)
 async def open_cash_drawer(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
@@ -303,9 +284,6 @@ async def open_cash_drawer(
     return redis.execute_command('open_cash_drawer', device_id=device_id)
 
 
-# ========== ЗВУКОВЫЕ СИГНАЛЫ ==========
-
-@router.post("/beep", response_model=StatusResponse)
 async def beep(
     request: BeepRequest = BeepRequest(),
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
@@ -331,7 +309,6 @@ async def beep(
     return redis.execute_command('beep', device_id=device_id, kwargs=request.model_dump())
 
 
-@router.post("/play-arcane", response_model=StatusResponse)
 async def play_arcane_melody(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
@@ -349,3 +326,172 @@ async def play_arcane_melody(
     """
     # Увеличиваем таймаут до 30 секунд, так как мелодия играет ~15 секунд
     return redis.execute_command('play_arcane_melody', device_id=device_id, timeout=30)
+
+
+# ========== ОПИСАНИЕ МАРШРУТОВ ==========
+
+PRINT_ROUTES = [
+    RouteDTO(
+        path="/text",
+        endpoint=print_text,
+        response_model=StatusResponse,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Печать текста",
+        description="Напечатать строку текста с форматированием",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Текст успешно напечатан",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/feed",
+        endpoint=feed_line,
+        response_model=StatusResponse,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Промотка ленты",
+        description="Промотать чековую ленту на N пустых строк",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Лента успешно промотана",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/barcode",
+        endpoint=print_barcode,
+        response_model=StatusResponse,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Печать штрихкода",
+        description="Напечатать одномерный или двумерный штрихкод (QR, EAN-13, PDF417, и др.)",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Штрихкод успешно напечатан",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/picture",
+        endpoint=print_picture,
+        response_model=StatusResponse,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Печать картинки из файла",
+        description="Напечатать картинку из файла (BMP или PNG без прозрачности)",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Картинка успешно напечатана",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/picture-by-number",
+        endpoint=print_picture_by_number,
+        response_model=StatusResponse,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Печать картинки из памяти",
+        description="Напечатать картинку из памяти ККТ по номеру",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Картинка успешно напечатана",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/document/open",
+        endpoint=open_nonfiscal_document,
+        response_model=StatusResponse,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Открыть нефискальный документ",
+        description="Открыть нефискальный документ для печати",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Нефискальный документ открыт",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/document/close",
+        endpoint=close_nonfiscal_document,
+        response_model=StatusResponse,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Закрыть нефискальный документ",
+        description="Закрыть нефискальный документ и отрезать чек",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Нефискальный документ закрыт",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/cut",
+        endpoint=cut_paper,
+        response_model=StatusResponse,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Отрезать чек",
+        description="Отрезать чековую ленту",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Лента отрезана",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/open-drawer",
+        endpoint=open_cash_drawer,
+        response_model=StatusResponse,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Открыть денежный ящик",
+        description="Подать сигнал на открытие денежного ящика",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Денежный ящик открыт",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/beep",
+        endpoint=beep,
+        response_model=StatusResponse,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Звуковой сигнал",
+        description="Подать звуковой сигнал через динамик ККТ",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Звуковой сигнал воспроизведён",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/play-arcane",
+        endpoint=play_arcane_melody,
+        response_model=StatusResponse,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Мелодия Arcane",
+        description="Сыграть мелодию 'Enemy' из сериала Arcane",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Мелодия успешно воспроизведена",
+            },
+        },
+    ),
+]
+
+
+# ========== ПОДКЛЮЧЕНИЕ РОУТЕРА ==========
+
+router = RouterFactory(
+    prefix='/print',
+    tags=['Non-Fiscal Printing'],
+    routes=PRINT_ROUTES,
+)

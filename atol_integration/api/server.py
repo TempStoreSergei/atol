@@ -6,7 +6,6 @@ FastAPI REST API сервер для АТОЛ ККТ
 import logging
 from fastapi import FastAPI, HTTPException, status
 
-# Импорты роутеров
 from ..routes import (
     cash_routes,
     config_routes,
@@ -31,17 +30,25 @@ app = FastAPI(
     version="0.4.0",
 )
 
-# ========== ПОДКЛЮЧЕНИЕ РОУТЕРОВ ==========
-app.include_router(connection_routes.router)
-app.include_router(operator_routes.router)
-app.include_router(receipt_routes.router)
-app.include_router(shift_routes.router)
-app.include_router(cash_routes.router)
-app.include_router(print_routes.router)
-app.include_router(query_routes.router)
-app.include_router(config_routes.router)
 
-logger.info("✓ Все роутеры подключены к приложению")
+# ========== ПОДКЛЮЧЕНИЕ РОУТЕРОВ ==========
+
+# Список всех роутеров приложения
+routers = []
+routers.append(receipt_routes.router())
+routers.append(shift_routes.router())
+routers.append(cash_routes.router())
+routers.append(connection_routes.router())
+routers.append(operator_routes.router())
+routers.append(query_routes.router())
+routers.append(print_routes.router())
+routers.append(config_routes.router())
+
+# Подключаем все роутеры к приложению
+for router in routers:
+    app.include_router(router)
+
+logger.info(f"✓ Подключено {len(routers)} роутеров к приложению")
 
 
 # ========== БАЗОВЫЕ ENDPOINTS ==========

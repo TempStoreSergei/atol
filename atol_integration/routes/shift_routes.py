@@ -2,13 +2,11 @@
 REST API endpoint'ы для операций со сменами (shifts)
 """
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import Depends, Query, status
 from pydantic import BaseModel, Field
 
 from ..api.redis_client import RedisClient, get_redis_client
-
-
-router = APIRouter(prefix="/shift", tags=["Shift"])
+from ..api.routing import RouteDTO, RouterFactory
 
 
 # ========== МОДЕЛИ ДАННЫХ ==========
@@ -55,51 +53,109 @@ class StatusResponse(BaseModel):
     message: Optional[str] = None
 
 
-# ========== ОСНОВНЫЕ ОПЕРАЦИИ СО СМЕНАМИ ==========
+# ========== ФУНКЦИИ ЭНДПОИНТОВ ==========
 
-@router.post("/open")
 async def open_shift(
     request: OpenShiftRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
-    """
-    Открыть новую смену.
-    """
+    """Открыть новую смену"""
     return redis.execute_command('shift_open', device_id=device_id, kwargs={'cashier_name': request.cashier_name})
 
 
-@router.post("/close", response_model=CloseShiftResponse)
 async def close_shift(
     cashier_name: str,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
-    """
-    Закрыть текущую смену (Z-отчет).
-    """
+    """Закрыть текущую смену (Z-отчет)"""
     return redis.execute_command('shift_close', device_id=device_id, kwargs={'cashier_name': cashier_name})
 
 
-@router.get("/status", response_model=ShiftStatusResponse)
 async def get_shift_status(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
-    """
-    Получить статус текущей смены.
-    """
+    """Получить статус текущей смены"""
     return redis.execute_command('shift_get_status', device_id=device_id)
 
 
-@router.post("/x-report", response_model=XReportResponse)
 async def print_x_report(
     cashier_name: str,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
-    """
-    Напечатать X-отчет (отчет без гашения).
-    """
+    """Напечатать X-отчет (отчет без гашения)"""
     return redis.execute_command('shift_print_x_report', device_id=device_id, kwargs={'cashier_name': cashier_name})
 
+
+# ========== ОПИСАНИЕ МАРШРУТОВ ==========
+
+SHIFT_ROUTES = [
+    RouteDTO(
+        path="/open",
+        endpoint=open_shift,
+        response_model=None,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Открыть смену",
+        description="Открыть новую рабочую смену на кассе",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Смена успешно открыта",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/close",
+        endpoint=close_shift,
+        response_model=CloseShiftResponse,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Закрыть смену",
+        description="Закрыть смену с формированием Z-отчета",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Смена успешно закрыта, Z-отчет сформирован",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/status",
+        endpoint=get_shift_status,
+        response_model=ShiftStatusResponse,
+        methods=["GET"],
+        status_code=status.HTTP_200_OK,
+        summary="Статус смены",
+        description="Получить информацию о текущей смене",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Статус смены получен",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/x-report",
+        endpoint=print_x_report,
+        response_model=XReportResponse,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="X-отчет",
+        description="Напечатать X-отчет без закрытия смены",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "X-отчет успешно напечатан",
+            },
+        },
+    ),
+]
+
+
+# ========== ПОДКЛЮЧЕНИЕ РОУТЕРА ==========
+
+router = RouterFactory(
+    prefix='/shift',
+    tags=['Shift'],
+    routes=SHIFT_ROUTES,
+)

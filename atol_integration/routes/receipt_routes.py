@@ -1,15 +1,13 @@
-Gl;"""
+"""
 REST API endpoint'ы для операций с чеками (receipts)
 """
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import Depends, Query, status
 from pydantic import BaseModel, Field
 
 from ..api.redis_client import RedisClient, get_redis_client
 from ..api.driver import TaxType, PaymentType
-
-
-router = APIRouter(prefix="/receipt", tags=["Receipt"])
+from ..api.routing import RouteDTO, RouterFactory
 
 
 # ========== МОДЕЛИ ДАННЫХ ==========
@@ -42,7 +40,6 @@ class CloseReceiptResponse(BaseModel):
     success: bool
     fiscal_document_number: Optional[int] = None
     fiscal_document_sign: Optional[int] = None
-    # ... другие поля
 
 
 class StatusResponse(BaseModel):
@@ -51,62 +48,131 @@ class StatusResponse(BaseModel):
     message: Optional[str] = None
 
 
-# ========== ОСНОВНЫЕ ОПЕРАЦИИ С ЧЕКАМИ ==========
+# ========== ФУНКЦИИ ЭНДПОИНТОВ ==========
 
-@router.post("/open")
 async def open_receipt(
     request: OpenReceiptRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
-    """
-    Открыть новый чек.
-    """
+    """Открыть новый чек"""
     return redis.execute_command('receipt_open', device_id=device_id, kwargs=request.model_dump())
 
 
-@router.post("/add-item")
 async def add_item(
     request: AddItemRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
-    """
-    Добавить позицию в открытый чек.
-    """
+    """Добавить позицию в открытый чек"""
     return redis.execute_command('receipt_add_item', device_id=device_id, kwargs=request.model_dump())
 
 
-@router.post("/add-payment")
 async def add_payment(
     request: AddPaymentRequest,
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
-    """
-    Добавить оплату в открытый чек.
-    """
+    """Добавить оплату в открытый чек"""
     return redis.execute_command('receipt_add_payment', device_id=device_id, kwargs=request.model_dump())
 
 
-@router.post("/close", response_model=CloseReceiptResponse)
 async def close_receipt(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
-    """
-    Закрыть чек и напечатать.
-    """
+    """Закрыть чек и напечатать"""
     return redis.execute_command('receipt_close', device_id=device_id)
 
 
-@router.post("/cancel")
 async def cancel_receipt(
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
     redis: RedisClient = Depends(get_redis_client)
 ):
-    """
-    Отменить открытый чек.
-    """
+    """Отменить открытый чек"""
     return redis.execute_command('receipt_cancel', device_id=device_id)
 
+
+# ========== ОПИСАНИЕ МАРШРУТОВ ==========
+
+RECEIPT_ROUTES = [
+    RouteDTO(
+        path="/open",
+        endpoint=open_receipt,
+        response_model=None,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Открыть чек",
+        description="Открыть новый чек для продажи, возврата, покупки или возврата покупки",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Чек успешно открыт",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/add-item",
+        endpoint=add_item,
+        response_model=None,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Добавить позицию",
+        description="Добавить товар или услугу в открытый чек",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Позиция успешно добавлена",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/add-payment",
+        endpoint=add_payment,
+        response_model=None,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Добавить оплату",
+        description="Добавить оплату в открытый чек (наличные, карта и т.д.)",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Оплата успешно добавлена",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/close",
+        endpoint=close_receipt,
+        response_model=CloseReceiptResponse,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Закрыть чек",
+        description="Закрыть и напечатать чек, получить фискальные данные",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Чек успешно закрыт и напечатан",
+            },
+        },
+    ),
+    RouteDTO(
+        path="/cancel",
+        endpoint=cancel_receipt,
+        response_model=None,
+        methods=["POST"],
+        status_code=status.HTTP_200_OK,
+        summary="Отменить чек",
+        description="Отменить открытый чек без печати",
+        responses={
+            status.HTTP_200_OK: {
+                "description": "Чек успешно отменён",
+            },
+        },
+    ),
+]
+
+
+# ========== ПОДКЛЮЧЕНИЕ РОУТЕРА ==========
+
+router = RouterFactory(
+    prefix='/receipt',
+    tags=['Receipt'],
+    routes=RECEIPT_ROUTES,
+)
