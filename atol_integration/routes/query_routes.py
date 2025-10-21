@@ -7,7 +7,6 @@ from pydantic import BaseModel
 
 from ..api.dependencies import get_redis, pubsub_command_util
 from redis.asyncio import Redis
-from ..api.libfptr10 import IFptr
 from ..api.routing import RouteDTO, RouterFactory
 
 
@@ -268,7 +267,7 @@ async def get_receipt_line_length(
 
 async def get_unit_version(
     unit_type: int = Query(
-        IFptr.LIBFPTR_UT_FIRMWARE,
+        0,  # LIBFPTR_UT_FIRMWARE - прошивка
         description=(
             "Тип модуля: 0=прошивка (FIRMWARE), 1=конфигурация (CONFIGURATION), "
             "2=шаблоны (TEMPLATES), 3=блок управления (CONTROL_UNIT), 4=загрузчик (BOOT)"
@@ -393,7 +392,7 @@ async def get_non_nullable_sum(
 
 async def get_power_source_state(
     power_source_type: int = Query(
-        IFptr.LIBFPTR_PST_BATTERY,
+        2,  # LIBFPTR_PST_BATTERY - аккумуляторы
         description="Тип источника: 0=блок питания, 1=батарея часов, 2=аккумуляторы"
     ),
     device_id: str = Query("default", description="Идентификатор фискального регистратора"),
