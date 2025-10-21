@@ -115,7 +115,12 @@ async def print_text(
     {"text": "Очень длинная строка которая не поместится", "wrap": 1}
     ```
     """
-    return await pubsub_command_util(redis, device_id=device_id, command='print_text', kwargs=request.model_dump(exclude_none=True))
+    command = {
+        "device_id": device_id,
+        "command": "print_text",
+        "kwargs": request.model_dump(exclude_none=True)
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def feed_line(
@@ -128,7 +133,12 @@ async def feed_line(
 
     **Внимание:** Не рекомендуется печатать вне открытых документов!
     """
-    return await pubsub_command_util(redis, device_id=device_id, command='print_feed', kwargs=request.model_dump())
+    command = {
+        "device_id": device_id,
+        "command": "print_feed",
+        "kwargs": request.model_dump()
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def print_barcode(
@@ -177,7 +187,12 @@ async def print_barcode(
     {"barcode": "[01]98898765432106[3202]012345[15]991231", "barcode_type": 10}
     ```
     """
-    return await pubsub_command_util(redis, device_id=device_id, command='print_barcode', kwargs=request.model_dump(exclude_none=True))
+    command = {
+        "device_id": device_id,
+        "command": "print_barcode",
+        "kwargs": request.model_dump(exclude_none=True)
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def print_picture(
@@ -201,7 +216,12 @@ async def print_picture(
 
     **Внимание:** Не рекомендуется печатать вне открытых документов!
     """
-    return await pubsub_command_util(redis, device_id=device_id, command='print_picture', kwargs=request.model_dump(exclude_none=True))
+    command = {
+        "device_id": device_id,
+        "command": "print_picture",
+        "kwargs": request.model_dump(exclude_none=True)
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def print_picture_by_number(
@@ -226,7 +246,12 @@ async def print_picture_by_number(
 
     **Внимание:** Не рекомендуется печатать вне открытых документов!
     """
-    return await pubsub_command_util(redis, device_id=device_id, command='print_picture_by_number', kwargs=request.model_dump(exclude_none=True))
+    command = {
+        "device_id": device_id,
+        "command": "print_picture_by_number",
+        "kwargs": request.model_dump(exclude_none=True)
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def open_nonfiscal_document(
@@ -246,7 +271,11 @@ async def open_nonfiscal_document(
     2. Печатать текст, штрихкоды, картинки (`/text`, `/barcode`, `/picture`)
     3. Закрыть документ (`/document/close`)
     """
-    return await pubsub_command_util(redis, device_id=device_id, command='open_nonfiscal_document')
+    command = {
+        "device_id": device_id,
+        "command": "open_nonfiscal_document"
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def close_nonfiscal_document(
@@ -258,7 +287,11 @@ async def close_nonfiscal_document(
 
     Завершает печать нефискального документа и отрезает чек.
     """
-    return await pubsub_command_util(redis, device_id=device_id, command='close_nonfiscal_document')
+    command = {
+        "device_id": device_id,
+        "command": "close_nonfiscal_document"
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def cut_paper(
@@ -270,7 +303,11 @@ async def cut_paper(
 
     Используется для отрезания чека после завершения печати.
     """
-    return await pubsub_command_util(redis, device_id=device_id, command='cut_paper')
+    command = {
+        "device_id": device_id,
+        "command": "cut_paper"
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def open_cash_drawer(
@@ -282,7 +319,11 @@ async def open_cash_drawer(
 
     Подает сигнал на открытие денежного ящика, подключенного к ККТ.
     """
-    return await pubsub_command_util(redis, device_id=device_id, command='open_cash_drawer')
+    command = {
+        "device_id": device_id,
+        "command": "open_cash_drawer"
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def beep(
@@ -307,7 +348,12 @@ async def beep(
     - 494 Гц - Си (B4)
     - 523 Гц - До (C5)
     """
-    return await pubsub_command_util(redis, device_id=device_id, command='beep', kwargs=request.model_dump())
+    command = {
+        "device_id": device_id,
+        "command": "beep",
+        "kwargs": request.model_dump()
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def play_arcane_melody(
@@ -325,8 +371,11 @@ async def play_arcane_melody(
     **Внимание**: Во время воспроизведения мелодии ККТ будет занята и не сможет
     выполнять другие операции.
     """
-    # Увеличиваем таймаут до 30 секунд, так как мелодия играет ~15 секунд
-    return await pubsub_command_util(redis, device_id=device_id, command='play_arcane_melody', timeout=30)
+    command = {
+        "device_id": device_id,
+        "command": "play_arcane_melody"
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 # ========== ОПИСАНИЕ МАРШРУТОВ ==========

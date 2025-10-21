@@ -57,7 +57,12 @@ async def open_receipt(
     redis: Redis = Depends(get_redis)
 ):
     """Открыть новый чек"""
-    return await pubsub_command_util(redis, device_id=device_id, command='receipt_open', kwargs=request.model_dump())
+    command = {
+        "device_id": device_id,
+        "command": "receipt_open",
+        "kwargs": request.model_dump()
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def add_item(
@@ -66,7 +71,12 @@ async def add_item(
     redis: Redis = Depends(get_redis)
 ):
     """Добавить позицию в открытый чек"""
-    return await pubsub_command_util(redis, device_id=device_id, command='receipt_add_item', kwargs=request.model_dump())
+    command = {
+        "device_id": device_id,
+        "command": "receipt_add_item",
+        "kwargs": request.model_dump()
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def add_payment(
@@ -75,7 +85,12 @@ async def add_payment(
     redis: Redis = Depends(get_redis)
 ):
     """Добавить оплату в открытый чек"""
-    return await pubsub_command_util(redis, device_id=device_id, command='receipt_add_payment', kwargs=request.model_dump())
+    command = {
+        "device_id": device_id,
+        "command": "receipt_add_payment",
+        "kwargs": request.model_dump()
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def close_receipt(
@@ -83,7 +98,11 @@ async def close_receipt(
     redis: Redis = Depends(get_redis)
 ):
     """Закрыть чек и напечатать"""
-    return await pubsub_command_util(redis, device_id=device_id, command='receipt_close')
+    command = {
+        "device_id": device_id,
+        "command": "receipt_close"
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def cancel_receipt(
@@ -91,7 +110,11 @@ async def cancel_receipt(
     redis: Redis = Depends(get_redis)
 ):
     """Отменить открытый чек"""
-    return await pubsub_command_util(redis, device_id=device_id, command='receipt_cancel')
+    command = {
+        "device_id": device_id,
+        "command": "receipt_cancel"
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 # ========== ОПИСАНИЕ МАРШРУТОВ ==========

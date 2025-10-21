@@ -62,7 +62,12 @@ async def open_shift(
     redis: Redis = Depends(get_redis)
 ):
     """Открыть новую смену"""
-    return await pubsub_command_util(redis, device_id=device_id, command='shift_open', kwargs={'cashier_name': request.cashier_name})
+    command = {
+        "device_id": device_id,
+        "command": "shift_open",
+        "kwargs": {"cashier_name": request.cashier_name}
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def close_shift(
@@ -71,7 +76,12 @@ async def close_shift(
     redis: Redis = Depends(get_redis)
 ):
     """Закрыть текущую смену (Z-отчет)"""
-    return await pubsub_command_util(redis, device_id=device_id, command='shift_close', kwargs={'cashier_name': cashier_name})
+    command = {
+        "device_id": device_id,
+        "command": "shift_close",
+        "kwargs": {"cashier_name": cashier_name}
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def get_shift_status(
@@ -79,7 +89,11 @@ async def get_shift_status(
     redis: Redis = Depends(get_redis)
 ):
     """Получить статус текущей смены"""
-    return await pubsub_command_util(redis, device_id=device_id, command='shift_get_status')
+    command = {
+        "device_id": device_id,
+        "command": "shift_get_status"
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def print_x_report(
@@ -88,7 +102,12 @@ async def print_x_report(
     redis: Redis = Depends(get_redis)
 ):
     """Напечатать X-отчет (отчет без гашения)"""
-    return await pubsub_command_util(redis, device_id=device_id, command='shift_print_x_report', kwargs={'cashier_name': cashier_name})
+    command = {
+        "device_id": device_id,
+        "command": "shift_print_x_report",
+        "kwargs": {"cashier_name": cashier_name}
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 # ========== ОПИСАНИЕ МАРШРУТОВ ==========

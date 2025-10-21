@@ -51,7 +51,12 @@ async def open_connection(
     redis: Redis = Depends(get_redis)
 ):
     """Открыть логическое соединение с ККТ"""
-    return await pubsub_command_util(redis, device_id=device_id, command='connection_open', kwargs={'settings': request.settings})
+    command = {
+        "device_id": device_id,
+        "command": "connection_open",
+        "kwargs": {"settings": request.settings}
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def close_connection(
@@ -59,7 +64,11 @@ async def close_connection(
     redis: Redis = Depends(get_redis)
 ):
     """Закрыть логическое соединение с ККТ"""
-    return await pubsub_command_util(redis, device_id=device_id, command='connection_close')
+    command = {
+        "device_id": device_id,
+        "command": "connection_close"
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def is_connection_opened(
@@ -67,7 +76,11 @@ async def is_connection_opened(
     redis: Redis = Depends(get_redis)
 ):
     """Проверить состояние логического соединения"""
-    return await pubsub_command_util(redis, device_id=device_id, command='connection_is_opened')
+    command = {
+        "device_id": device_id,
+        "command": "connection_is_opened"
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 # ========== ОПИСАНИЕ МАРШРУТОВ ==========

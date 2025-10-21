@@ -321,6 +321,10 @@ async def get_payment_sum(
         "device_id": device_id,
         "command": "get_payment_sum",
         "kwargs": {"payment_type": payment_type, "receipt_type": receipt_type}
+        "kwargs": {
+        'payment_type': payment_type,
+        'receipt_type': receipt_type
+    
     }
     return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 

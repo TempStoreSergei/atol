@@ -49,7 +49,12 @@ async def cash_in(
     redis: Redis = Depends(get_redis)
 ):
     """Внесение наличных в кассу"""
-    return await pubsub_command_util(redis, device_id=device_id, command='cash_in', kwargs=request.model_dump())
+    command = {
+        "device_id": device_id,
+        "command": "cash_in",
+        "kwargs": request.model_dump()
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def cash_out(
@@ -58,7 +63,12 @@ async def cash_out(
     redis: Redis = Depends(get_redis)
 ):
     """Изъятие наличных из кассы"""
-    return await pubsub_command_util(redis, device_id=device_id, command='cash_out', kwargs=request.model_dump())
+    command = {
+        "device_id": device_id,
+        "command": "cash_out",
+        "kwargs": request.model_dump()
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def get_cash_sum(
@@ -66,7 +76,12 @@ async def get_cash_sum(
     redis: Redis = Depends(get_redis)
 ):
     """Получить сумму наличных в денежном ящике"""
-    return await pubsub_command_util(redis, device_id=device_id, command='query_data', kwargs={'data_type': 3})  # LIBFPTR_DT_CASH_SUM = 3
+    command = {
+        "device_id": device_id,
+        "command": "query_data",
+        "kwargs": {"data_type": 3}  # LIBFPTR_DT_CASH_SUM = 3
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def open_cash_drawer(
@@ -74,7 +89,11 @@ async def open_cash_drawer(
     redis: Redis = Depends(get_redis)
 ):
     """Открыть денежный ящик"""
-    return await pubsub_command_util(redis, device_id=device_id, command='cash_drawer_open')
+    command = {
+        "device_id": device_id,
+        "command": "cash_drawer_open"
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def get_cash_drawer_status(
@@ -82,7 +101,12 @@ async def get_cash_drawer_status(
     redis: Redis = Depends(get_redis)
 ):
     """Проверить состояние денежного ящика"""
-    return await pubsub_command_util(redis, device_id=device_id, command='query_data', kwargs={'data_type': 1})  # LIBFPTR_DT_STATUS = 1
+    command = {
+        "device_id": device_id,
+        "command": "query_data",
+        "kwargs": {"data_type": 1}  # LIBFPTR_DT_STATUS = 1
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 # ========== ОПИСАНИЕ МАРШРУТОВ ==========

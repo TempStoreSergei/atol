@@ -33,7 +33,12 @@ async def operator_login(
     redis: Redis = Depends(get_redis)
 ):
     """Зарегистрировать кассира (operatorLogin)"""
-    return await pubsub_command_util(redis, device_id=device_id, command='operator_login', kwargs=request.model_dump(exclude_none=True))
+    command = {
+        "device_id": device_id,
+        "command": "operator_login",
+        "kwargs": request.model_dump(exclude_none=True)
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def continue_print(
@@ -41,7 +46,11 @@ async def continue_print(
     redis: Redis = Depends(get_redis)
 ):
     """Допечатать документ (continuePrint)"""
-    return await pubsub_command_util(redis, device_id=device_id, command='continue_print')
+    command = {
+        "device_id": device_id,
+        "command": "continue_print"
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def check_document_closed(
@@ -49,7 +58,11 @@ async def check_document_closed(
     redis: Redis = Depends(get_redis)
 ):
     """Проверить закрытие документа (checkDocumentClosed)"""
-    return await pubsub_command_util(redis, device_id=device_id, command='check_document_closed')
+    command = {
+        "device_id": device_id,
+        "command": "check_document_closed"
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 # ========== ОПИСАНИЕ МАРШРУТОВ ==========

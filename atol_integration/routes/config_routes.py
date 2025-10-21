@@ -46,7 +46,12 @@ async def configure_logging(
     redis: Redis = Depends(get_redis)
 ):
     """Настроить логирование драйвера АТОЛ"""
-    return await pubsub_command_util(redis, device_id=device_id, command='configure_logging', kwargs=request.model_dump(exclude_none=True))
+    command = {
+        "device_id": device_id,
+        "command": "configure_logging",
+        "kwargs": request.model_dump(exclude_none=True)
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def change_driver_label(
@@ -55,7 +60,12 @@ async def change_driver_label(
     redis: Redis = Depends(get_redis)
 ):
     """Изменить метку драйвера для логирования"""
-    return await pubsub_command_util(redis, device_id=device_id, command='change_driver_label', kwargs=request.model_dump())
+    command = {
+        "device_id": device_id,
+        "command": "change_driver_label",
+        "kwargs": request.model_dump()
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 async def get_default_logging_config(
@@ -63,7 +73,11 @@ async def get_default_logging_config(
     redis: Redis = Depends(get_redis)
 ):
     """Получить настройки логирования по умолчанию"""
-    return await pubsub_command_util(redis, device_id=device_id, command='get_default_logging_config')
+    command = {
+        "device_id": device_id,
+        "command": "get_default_logging_config"
+    }
+    return await pubsub_command_util(redis, f"command_fr_channel_{device_id}", command)
 
 
 # ========== ОПИСАНИЕ МАРШРУТОВ ==========
